@@ -1,5 +1,5 @@
 import os
-GAME='file://'+os.path.abspath(os.path.join(os.path.dirname(__file__),'..','index.html'))
+GAME='file://'+os.path.abspath(os.path.join(os.path.dirname(__file__),'..','dist','index.html'))
 THREE=os.environ.get('THREE_JS','/tmp/t3/node_modules/three/build/three.min.js')
 from playwright.sync_api import sync_playwright
 INIT="""
@@ -17,6 +17,7 @@ with sync_playwright() as p:
     pg.route('**fonts.g*',lambda r:r.abort())
     errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto(GAME); pg.wait_for_timeout(800)
+    pg.evaluate("setPlayers(2,true)")  # the ghost copy would otherwise auto-select 3 players
     print('players:',pg.evaluate("numPlayers"))
     pg.evaluate("tap(0,1)")   # A on left joycon -> Start (focused) -> opens assignment
     pg.wait_for_timeout(300); print('state:',pg.evaluate("state"))

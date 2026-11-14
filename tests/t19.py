@@ -1,5 +1,5 @@
 import os
-GAME='file://'+os.path.abspath(os.path.join(os.path.dirname(__file__),'..','index.html'))
+GAME='file://'+os.path.abspath(os.path.join(os.path.dirname(__file__),'..','dist','index.html'))
 THREE=os.environ.get('THREE_JS','/tmp/t3/node_modules/three/build/three.min.js')
 from playwright.sync_api import sync_playwright
 INIT="""
