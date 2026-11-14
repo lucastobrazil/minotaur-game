@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { G } from './state';
 import type { Chest, ChestParts, Effect, Fireball, ItemId, Minotaur, Player, Vec2 } from './types';
 import { noiseBurst, route, tone } from './audio';
+import { fireballHitsBoss } from './boss';
 import { $, NAMES, isTouch, rnd } from './core';
 import { showToast } from './hud';
 import { splitMode, throwHeld } from './input';
@@ -10,7 +11,10 @@ import { walk } from './maze';
 import { M, box, glowPool, glowSprite, scene, shadowAll, sph } from './scene';
 
 // ---------- trader chests & fireballs ----------
-export function rollItem(): ItemId{return'fireball'}
+/** What's in a trader chest. Winged sandals join the fireball once the Great Minotaur has been beaten. */
+export function rollItem(): ItemId{return G.robeUnlocked&&Math.random()<.45?'sandals':'fireball'}
+export const ITEM_ICON: Record<ItemId, string>={fireball:'🔥',sandals:'👟'};
+export const ITEM_NAME: Record<ItemId, string>={fireball:'a fireball',sandals:'winged sandals'};
 // more items can be added to the chest later
 export function makeChest(): Chest['g']{
   const g=new THREE.Group(),wood=M('#6b4423',{roughness:.9}),gold=M('#d9a52e',{metalness:.7,roughness:.35});
@@ -53,22 +57,27 @@ export function updateItems(now: number, dt: number){
     if(c.opened)continue;
     const p=G.players.find(p=>p.x===c.x&&p.y===c.y);
     if(!p)continue;
-    if(p.item){if(now-(c.nag||0)>2500){c.nag=now;showToast('You can only carry one fireball. Use it first!',1800)}continue}
+    if(p.item||p.ghost){if(!p.ghost&&now-(c.nag||0)>2500){c.nag=now;showToast('You can only carry one item. Use it first!',1800)}continue}
     c.opened=now;p.item=c.item;G.carry[G.players.indexOf(p)]=c.item;sfxChestOpen();
     burst(c.x,.5,c.y,'#ffb347',12,1.4);
-    showToast(`🔥 ${NAMES[G.players.indexOf(p)]} found a fireball! ${throwHint(G.players.indexOf(p))}`,3200);
+    showToast(`${ITEM_ICON[c.item]} ${NAMES[G.players.indexOf(p)]} found ${ITEM_NAME[c.item]}! ${throwHint(G.players.indexOf(p),c.item)}`,3200);
   }
   G.chests=G.chests.filter(c=>{const gone=(c.opened>0&&now-c.opened>2500)||(c.opened<0&&now+c.opened>700);if(gone)G.levelGroup.remove(c.g);return!gone});
   // throwing
   G.players.forEach((p,i)=>{
     const held=throwHeld(i);
-    if(held&&!p.throwPrev&&p.item==='fireball'){p.item=null;G.carry[i]=null;launchFireball(p,now)}
+    if(held&&!p.throwPrev&&p.item&&!p.ghost){
+      const it=p.item;p.item=null;G.carry[i]=null;
+      if(it==='fireball')launchFireball(p,now);
+      else{p.sandalsUntil=now+10000;sfxWhoosh();[660,880,1320].forEach((f,k)=>tone(f,.15,'triangle',.08,null,k*.06));showToast(`👟 ${NAMES[i]} is wearing winged sandals: super speed for 10 seconds!`,2400)}
+    }
     p.throwPrev=held;
   });
   // fireballs fly straight down the corridor until they hit something
   for(const f of G.fireballs){
     const step=dt*11;f.fx+=f.dx*step;f.fz+=f.dz*step;f.dist+=step;
     const tx=Math.round(f.fx),tz=Math.round(f.fz);
+    if(G.boss&&G.boss.mode!=='dead'&&Math.hypot(G.boss.px-f.fx,G.boss.py-f.fz)<1.05){explode(f,fireballHitsBoss(now));continue}
     const hit=G.minos.find(m=>Math.hypot(m.px-f.fx,m.py-f.fz)<.65);
     if(hit){stunMino(hit,now);explode(f,true);continue}
     if(!(walk(tx,tz)||G.players.some(p=>p.x===tx&&p.y===tz))||f.dist>14){explode(f,false);continue}
@@ -77,7 +86,11 @@ export function updateItems(now: number, dt: number){
   }
   G.fireballs=G.fireballs.filter(f=>!f.dead);
 }
-export function throwHint(i: number): string{
+export function throwHint(i: number, item: ItemId='fireball'): string{
+  const verb=item==='fireball'?'throw it':'put them on';
+  return useHint(i).replace('throw it',verb);
+}
+function useHint(i: number): string{
   if(G.pads.length&&G.numPlayers===2&&splitMode())return i?'Throw it with ZR.':'Throw it with ZL.';
   if(G.pads.length)return'Press A to throw it.';
   if(isTouch)return'Tap 🔥 to throw it.';

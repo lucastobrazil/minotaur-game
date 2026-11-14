@@ -25,6 +25,7 @@
     <canvas id="cv"></canvas>
     <canvas id="mini"></canvas>
     <div id="toast"></div>
+    <div id="bossBar"><div class="bn">⚔️ The Great Minotaur</div><div class="bs"><i></i><i></i><i></i></div></div>
     <div id="splitLine"></div>
     <div id="splitLine2" class="h" style="display:none"></div>
     <div id="flash"></div>
@@ -69,6 +70,9 @@
       <button class="opt sel" data-diff="sleepy">Restless</button>
       <button class="opt" data-diff="speedy">Hunting</button>
     </div>
+    <div id="trophies"></div>
+    <div id="outfitRow" style="display:none"><div class="lab">Outfit</div>
+    <div class="row"><button class="opt" data-outfit="robe">Minotaur-Slayer robe</button><button class="opt" data-outfit="classic">Classic</button></div></div>
     <div id="padStatus"></div>
     <div class="padOnly"><div class="lab">Joy-Con grip</div>
     <div class="row"><button class="opt sel" data-grip="sideways">Sideways (one each)</button><button class="opt" data-grip="upright">Upright</button></div></div>
@@ -79,6 +83,7 @@
     <button class="go alt twoOnly" id="titleAssignBtn">🎮 Choose controllers</button>
     <div class="help">
       Every game builds a brand-new random labyrinth. You only see what you've explored, and the map in the corner fills in as you go. Once the last thread is found, the Minotaur hears the gate open and comes for you.<br>
+      <b>Boss levels</b> ⚔️ come after every 3 mazes. Make the Great Minotaur crash into a pillar, then hit him with a fireball from the braziers while he's dazed. Here (and only here) you have hearts; lose them all and you're a ghost until you touch a teammate.<br>
       <b>Controllers / Joy-Cons:</b> pair over Bluetooth, then press any button. Controller 1 is Theseus (blue), controller 2 is Ariadne (purple). <b>−</b> or <b>+</b> pauses.<br>
       <b>Keyboard:</b> Player 1 arrows (sprint: Enter or Right Shift, fireball: M or Right Ctrl), Player 2 W A S D (sprint: Left Shift or Q, fireball: F), Player 3 I J K L (sprint U, fireball O), Player 4 number pad 8 4 5 6 (sprint 7, fireball 9). <b>C</b> switches camera.<br>
       <b>3 or 4 players:</b> Perseus (green) and Atalanta (orange) join in. They need a controller or a share of the keyboard, since the on-screen arrows only cover players 1 and 2.<br>

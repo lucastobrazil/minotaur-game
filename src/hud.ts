@@ -1,5 +1,6 @@
 import { G } from './state';
 import type { CamMode, Difficulty, Grip } from './types';
+import { bossIntro } from './boss';
 import { $ } from './core';
 import { faceOpen } from './firstPerson';
 import { setFocus, setGrip } from './input';
@@ -7,7 +8,7 @@ import { resize } from './render';
 
 /* ---------- HUD & flow ---------- */
 export const fmt = (s: number): string=>{s=Math.floor(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
-export function updateHUD(){$('hLvl').textContent='Level '+G.level;$('hThr').textContent=`🧶 ${G.got}/${G.needed}`;$('hHug').textContent='💥 '+G.hugs;updateTime()}
+export function updateHUD(){$('hLvl').textContent=G.isBoss?`⚔️ Boss ${G.level/4}`:'Level '+G.level;$('hThr').style.display=G.isBoss?'none':'';$('hThr').textContent=`🧶 ${G.got}/${G.needed}`;$('hHug').textContent='💥 '+G.hugs;updateTime()}
 export function updateTime(){$('hTime').textContent='⏱ '+fmt(G.elapsed)}
 export function showToast(msg: string, ms=2200){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(G.toastTimer);G.toastTimer=setTimeout(()=>t.classList.remove('show'),ms)}
 export function setPlayers(n: number, manual: boolean){
@@ -27,6 +28,7 @@ export function toggleCam(){
 }
 export function hideAll(){G.livePads=false;['titleOv','winOv','pauseOv','assignOv'].forEach(id=>$(id).classList.add('hidden'));setFocus(null)}
 export function levelIntro(){
+  if(G.isBoss){bossIntro();return}
   const n=G.minos.length;
   showToast(n>1?`Level ${G.level}: ${G.needed} threads… and ${['','','TWO','THREE','FOUR'][n]} Minotaurs`:`Level ${G.level}: find ${G.needed} golden threads 🧶`,2800);
   if(G.level===1&&G.gates.length)setTimeout(()=>{if(G.state==='play')showToast('Find the coloured lever to open its gate. Hold sprint to run!',3500)},3000);
@@ -34,7 +36,7 @@ export function levelIntro(){
 
 export function buildStamina(){
   const w=$('stamWrap');w.innerHTML='';
-  G.players.forEach((p,i)=>{const wrap=document.createElement('span');wrap.style.display='flex';wrap.style.alignItems='center';const sp=document.createElement('span');sp.className='pill stam';sp.title='Sprint';const b=document.createElement('b');b.id='stb'+i;sp.appendChild(b);wrap.appendChild(sp);const iv=document.createElement('span');iv.className='inv';iv.id='inv'+i;iv.textContent='🔥';iv.title='Fireball ready';wrap.appendChild(iv);w.appendChild(wrap)});
+  G.players.forEach((p,i)=>{const wrap=document.createElement('span');wrap.style.display='flex';wrap.style.alignItems='center';const sp=document.createElement('span');sp.className='pill stam';sp.title='Sprint';const b=document.createElement('b');b.id='stb'+i;sp.appendChild(b);wrap.appendChild(sp);const iv=document.createElement('span');iv.className='inv';iv.id='inv'+i;iv.textContent='🔥';iv.title='Item ready';wrap.appendChild(iv);const hs=document.createElement('span');hs.className='hearts';hs.id='hearts'+i;hs.style.display='none';wrap.appendChild(hs);w.appendChild(wrap)});
 }
 
 export function init() {

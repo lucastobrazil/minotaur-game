@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { G } from './state';
-import type { Axis, FireParts, Torch, Vec2 } from './types';
+import type { Axis, FireParts, Player, Torch, Vec2 } from './types';
 import type { Cell } from './maze';
+import { isBossLevel, newBossLevel, resetBoss } from './boss';
 import { $, GATE_COLS, TRAIL, rnd, stage } from './core';
 import { buildStamina, updateHUD } from './hud';
 import { say } from './logic';
@@ -45,6 +46,13 @@ export function boxesGeo(list: number[][], U: number, V: number, keepBottom = fa
   g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
   g.computeBoundingSphere();return g;
 }
+/** (Re)build a hero's 3D model, e.g. at level start or after unlocking a new outfit. */
+export function attachPlayerMesh(p: Player, i: number){
+  if(p.mesh)G.levelGroup.remove(p.mesh);
+  p.mesh=makePlayer(i);p.mesh.scale.setScalar(1.3);p.mesh.position.set(p.px,0,p.py);p.mesh.rotation.y=p.face;G.levelGroup.add(p.mesh);
+  p.orb=new THREE.Group();p.orb.add(sph(.06,new THREE.MeshBasicMaterial({color:'#ffd27a'}),10,8));p.orb.add(glowSprite('#ff6a1a',.45,.9));p.orb.position.set(.26,.32,.1);p.mesh.add(p.orb);
+  p.feet=glowSprite('#ffd36a',.7,.9);p.feet.position.y=.05;p.feet.visible=false;p.mesh.add(p.feet);
+}
 export function buildLevel(){
   scene.remove(G.levelGroup);disposeGroup(G.levelGroup);G.levelGroup=new THREE.Group();scene.add(G.levelGroup);
   G.torches=[];
@@ -76,6 +84,8 @@ export function buildLevel(){
     pieces2.push([x,WH/2,y,T,WH,T]);capPieces.push([x,WH+.035,y,CT,.07,CT]);
     if(isWall(x+1,y)){pieces2.push([x+.5,WH/2,y,1-T,WH,T]);capPieces.push([x+.5,WH+.035,y,1-CT,.07,CT])}
     if(isWall(x,y+1)){pieces2.push([x,WH/2,y+.5,T,WH,1-T]);capPieces.push([x,WH+.035,y+.5,CT,.07,1-CT])}
+    // a solid 2x2 block of wall (boss arena pillars) gets its middle filled in
+    if(isWall(x+1,y)&&isWall(x,y+1)&&isWall(x+1,y+1)){pieces2.push([x+.5,WH/2,y+.5,1-T,WH,1-T]);capPieces.push([x+.5,WH+.035,y+.5,1-CT,.07,1-CT])}
   }
   const walls=new THREE.Mesh(boxesGeo(pieces2,1,1/WH),new THREE.MeshStandardMaterial({map:WALLTEX,roughness:.95}));
   const caps=new THREE.Mesh(boxesGeo(capPieces,2,8,true),new THREE.MeshStandardMaterial({map:CAPTEX,roughness:.95}));
@@ -199,8 +209,7 @@ export function buildLevel(){
   // players & trails
   const segGeo=new THREE.BoxGeometry(.07,.02,1);
   G.players.forEach((p,i)=>{
-    p.mesh=makePlayer(i);p.mesh.scale.setScalar(1.3);p.mesh.position.set(p.x,0,p.y);G.levelGroup.add(p.mesh);
-    p.orb=new THREE.Group();p.orb.add(sph(.06,new THREE.MeshBasicMaterial({color:'#ffd27a'}),10,8));p.orb.add(glowSprite('#ff6a1a',.45,.9));p.orb.position.set(.26,.32,.1);p.mesh.add(p.orb);
+    attachPlayerMesh(p,i);
     p.trail=new THREE.Group();G.levelGroup.add(p.trail);
     p.segGeo=segGeo;p.segMat=new THREE.MeshBasicMaterial({color:TRAIL[i],transparent:true,opacity:.75});
   });
@@ -218,6 +227,8 @@ export function buildLevel(){
   G.camInit=false;
 }
 export function newLevel(){
+  resetBoss();
+  if(isBossLevel(G.level)){newBossLevel();return}
   const [c,r]=dims();
   G.exit={x:-5,y:-5,axis:'x'};
   G.grid=genMaze(c,r).g;

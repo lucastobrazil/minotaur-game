@@ -10,6 +10,7 @@ export const SKY = '#161a28';
 export let scene: THREE.Scene & { fog: THREE.Fog };
 export let camera: THREE.PerspectiveCamera;
 export let moon: THREE.DirectionalLight;
+export let hemi: THREE.HemisphereLight;
 export let ground: THREE.Mesh;
 export const M = (c: Colorish, o: THREE.MeshStandardMaterialParameters={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.85,metalness:0},o));
 type MatLike = string | THREE.Material;
@@ -39,6 +40,16 @@ export function makePlayer(i: number): THREE.Group{
     const tail=sph(.1,hc);tail.position.set(0,.48,-.22);g.add(tail);
     const band=cyl(.225,.225,.04,bronze,20);band.position.y=.68;g.add(band);
     const spool=cyl(.06,.06,.12,'#d9a52e',12);spool.rotation.z=Math.PI/2;spool.position.set(.22,.3,.05);g.add(spool);
+  }
+  if(G.robeUnlocked&&G.outfit==='robe'){
+    // the Minotaur-Slayer robe: deep red with gold trim, plus bronze horns (helmets) or a gold laurel (hair)
+    const red=M('#8e1f1f',{roughness:.9}),gold=M('#d9a52e',{metalness:.7,roughness:.35});
+    const robe=cyl(.17,.29,.36,red,20);robe.position.y=.18;g.add(robe);
+    const hem=cyl(.295,.3,.04,gold,20);hem.position.y=.02;g.add(hem);
+    const sash=box(.05,.42,.02,gold);sash.position.set(0,.24,.2);sash.rotation.z=.5;g.add(sash);
+    const mantle=cyl(.2,.22,.06,gold,20);mantle.position.y=.39;g.add(mantle);
+    if(i%2===0){for(const s of [-1,1]){const h=new THREE.Mesh(new THREE.ConeGeometry(.035,.18,8),M('#e8dcc0',{roughness:.5}));h.position.set(s*.17,.82,0);h.rotation.z=-s*.6;g.add(h)}}
+    else{const laurel=new THREE.Mesh(new THREE.TorusGeometry(.215,.022,6,20),gold);laurel.rotation.x=Math.PI/2;laurel.position.y=.7;g.add(laurel)}
   }
   shadowAll(g);
   const light=new THREE.PointLight('#ffb066',1.5*[1,1,.8,.65,.55][Math.max(1,G.numPlayers)],7,1.6);light.position.set(0,1.3,.2);g.add(light);
@@ -105,7 +116,7 @@ export function init() {
   scene.background=new THREE.Color(SKY);
   scene.fog=new THREE.Fog(SKY,10,30);
   camera = new THREE.PerspectiveCamera(50,1,.1,300);
-  scene.add(new THREE.HemisphereLight('#8090c0','#3b2f25',.55));
+  hemi = new THREE.HemisphereLight('#8090c0','#3b2f25',.55);scene.add(hemi);
   moon = new THREE.DirectionalLight('#b4c2f0',.5);
   moon.castShadow=true;
   moon.shadow.mapSize.set(2048,2048);

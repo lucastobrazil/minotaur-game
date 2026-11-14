@@ -15,7 +15,7 @@ with sync_playwright() as p:
       const p=players[0];const d=reach(p.sx,p.sy,new Set(gates.map(q=>q.y*W+q.x)));const solo=reach(p.sx,p.sy,new Set([g.y*W+g.x]));
       if(solo[g.iy*W+g.ix]>=0)bad++;if(d[g.ly*W+g.lx]<0)n+=1000}}return [n,bad]})()"""))
     # trapped-player scenario: stand inside with gate closed, gate should open
-    pg.evaluate("level=1;newLevel();state='play';const g=gates[0],p=players[0];p.x=g.ix;p.y=g.iy;p.px=p.x;p.py=p.y;p.inv=1e12;g.open=false;g.until=0;computeSight();camInit=false")
+    pg.evaluate("level=1;newLevel();for(let k=0;k<20&&!gates.length;k++)newLevel();state='play';const g=gates[0],p=players[0];p.x=g.ix;p.y=g.iy;p.px=p.x;p.py=p.y;p.inv=1e12;g.open=false;g.until=0;computeSight();camInit=false")
     pg.wait_for_timeout(800)
     print('opens from inside:',pg.evaluate("gates[0].open"))
     pg.screenshot(path='/tmp/f1.png')

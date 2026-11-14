@@ -3,8 +3,9 @@ import { G } from './state';
 import type { Minotaur, Player, Vec2 } from './types';
 import { footstep, heartbeat, heroStep, sfx } from './ambience';
 import { gateSound, growl, roar, snort, tone } from './audio';
+import { minionCatch, updateBoss } from './boss';
 import { win } from './controllers';
-import { $, NAMES, STEP, rnd } from './core';
+import { $, NAMES, STEP, rnd, tapped } from './core';
 import { fpInput } from './firstPerson';
 import { showToast, updateHUD, updateTime } from './hud';
 import { getDir, sprintHeld } from './input';
@@ -53,7 +54,7 @@ export function diffCfg(m?: Minotaur): MinoCfg{
 export function minoStep(m: Minotaur, now: number){
   const {dist,prev}=bfs(m.x,m.y);
   let target: Player | null=null,best=1e9;
-  for(const p of G.players){if(p.inv>now)continue;const d=dist[p.y*G.W+p.x];if(d>=0&&d<best){best=d;target=p}}
+  for(const p of G.players){if(p.inv>now||p.ghost)continue;const d=dist[p.y*G.W+p.x];if(d>=0&&d<best){best=d;target=p}}
   const cfg=diffCfg(m);
   const inRange=target&&best<=cfg.radius;
   let step: Vec2 | null=null;
@@ -83,7 +84,8 @@ export function minoStep(m: Minotaur, now: number){
 }
 export function checkHug(now: number){
   for(const m of G.minos)for(const p of G.players){
-    if(p.inv>now||(m.stunUntil??0)>now)continue;
+    if(p.inv>now||(m.stunUntil??0)>now||p.ghost)continue;
+    if(p.x===m.x&&p.y===m.y&&G.isBoss){minionCatch(p,now);m.next=now+900;m.hugT=now;continue}
     if(p.x===m.x&&p.y===m.y){
       G.hugs++;G.hugsLevel++;
       const fl=$('flash');fl.classList.add('on');setTimeout(()=>fl.classList.remove('on'),120);
@@ -102,8 +104,9 @@ export function update(now: number, dt: number){
   G.elapsed+=dt;
   for(let i=0;i<G.players.length;i++){
     const p=G.players[i],dir=getDir(i);
-    p.sprinting=sprintHeld(i)&&!p.tired&&p.stamina>0&&!!dir;
-    if(p.sprinting){p.stamina=Math.max(0,p.stamina-dt/1.8);if(p.stamina<=0)p.tired=true}
+    const sandals=(p.sandalsUntil??0)>now;
+    p.sprinting=sandals?!!dir:sprintHeld(i)&&!p.tired&&p.stamina>0&&!!dir;
+    if(p.sprinting&&!sandals){p.stamina=Math.max(0,p.stamina-dt/1.8);if(p.stamina<=0)p.tired=true}
     else{p.stamina=Math.min(1,p.stamina+dt/(p.tired?5:3.5));if(p.tired&&p.stamina>=.4)p.tired=false}
     if(G.camMode==='fp'){fpInput(p,dir,now);if(G.state!=='play')return}
     else if(now>=p.next&&dir){tryMove(p,dir,now);if(G.state!=='play')return}
@@ -132,6 +135,8 @@ export function update(now: number, dt: number){
     if(now>=m.next){minoStep(m,now);m.next=now+diffCfg(m).interval}
   }
   updateItems(now,dt);
+  tapped.clear();
+  if(G.isBoss)updateBoss(now);
   heartbeat(now);
   let tn=0;for(const t of G.torches)for(const p of G.players){const d=Math.hypot(t.x-p.x,t.y-p.y);tn=Math.max(tn,1-d/4)}G.torchNear=Math.max(0,tn);
   updateTime();

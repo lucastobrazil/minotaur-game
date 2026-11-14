@@ -37,6 +37,17 @@ export const G: GameState = {
   nextChestT: 0,
   carry: [null, null, null, null],
 
+  isBoss: false,
+  boss: null,
+  braziers: [],
+  heartPickups: [],
+  maxHearts: 3,
+  darkTarget: 0,
+  darkness: 0,
+  bossWins: 0,
+  robeUnlocked: false,
+  outfit: 'classic',
+
   // assigned in scene.init()
   levelGroup: undefined as never,
   fogDirty: true,

@@ -2,13 +2,13 @@ import { G } from './state';
 import type { Grip, Vec2 } from './types';
 import { initAudio, tone } from './audio';
 import { assignInput, nextLevel, pause, renderPadList, requestStart, resume } from './controllers';
-import { $, codes, keys, touchDir, touchSprint, touchThrow } from './core';
+import { $, codes, keys, tapped, touchDir, touchSprint, touchThrow } from './core';
 import { setPlayers, showToast, toggleCam } from './hud';
 
 export function throwHeld(i: number): boolean{
   const c=[['ControlRight','KeyM'],['KeyF'],['KeyO'],['Numpad9']][i].slice();
   if(G.numPlayers===1)c.push('KeyF','ControlLeft');
-  if(c.some(k=>codes[k])||touchThrow[i])return true;
+  if(c.some(k=>codes[k]||tapped.has(k))||touchThrow[i])return true;
   if(splitMode()){const p=splitPad();const k=i===0?6:7;return!!(p.buttons[k]&&p.buttons[k].pressed)}
   for(const p of padsFor(i))if(p.buttons[1]&&p.buttons[1].pressed)return true;
   return false;
@@ -167,7 +167,7 @@ export function init() {
   /* ---------- input ---------- */
   addEventListener('keydown',e=>{
     if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
-    keys[e.key.length===1?e.key.toLowerCase():e.key]=true;codes[e.code]=true;
+    keys[e.key.length===1?e.key.toLowerCase():e.key]=true;codes[e.code]=true;tapped.add(e.code);
     if(G.state==='play'&&(['Tab','Slash','Space'].includes(e.code)||e.code.startsWith('Numpad')))e.preventDefault();
     if(e.repeat)return;
     if(e.key==='c'||e.key==='C')toggleCam();

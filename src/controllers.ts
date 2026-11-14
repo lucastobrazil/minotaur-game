@@ -2,6 +2,7 @@ import { G } from './state';
 
 import { sfx } from './ambience';
 import { initAudio, tone } from './audio';
+import { bossRewardText, isBossLevel } from './boss';
 import { $, COLORS, KEYDESC, NAMES, stage } from './core';
 import { fmt, hideAll, levelIntro, setPlayers, showToast, toggleCam } from './hud';
 import { isCombo, newAssign, ownerOf, padName, padReport, pairIsCopy, pollPads, setGrip, showPauseMsg, splitMode, usable } from './input';
@@ -88,7 +89,7 @@ export function nextLevel(){hideAll();G.level++;newLevel();G.state='play';levelI
 export function padTip(){if(G.pads.length)setTimeout(()=>{if(G.state==='play')showToast(splitMode()?'🎮 Left Joy-Con: Theseus (sprint L/ZL) · Right Joy-Con: Ariadne (sprint R/ZR) · + pause':'🎮 Hold B/X/Y/ZR to sprint · L/R camera · + pause',3600)},G.level===1&&G.gates.length?6800:3000)}
 export function win(){
   G.state='win';sfx.win();
-  $('winText').textContent=`Level ${G.level} complete. The next labyrinth is bigger and darker.`;
+  $('winText').textContent=G.isBoss?`You beat the Great Minotaur! ${bossRewardText()}`:`Level ${G.level} complete. ${isBossLevel(G.level+1)?'Next up: a BOSS fight!':'The next labyrinth is bigger and darker.'}`;
   $('winTime').textContent='⏱ '+fmt(G.elapsed);
   $('winHugs').textContent=`💥 ${G.hugsLevel} caught`;
   setTimeout(()=>{if(G.state==='win')$('winOv').classList.remove('hidden')},700);

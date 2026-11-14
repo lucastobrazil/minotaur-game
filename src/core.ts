@@ -1,5 +1,6 @@
 import type { Vec2 } from './types';
 
+import { update } from './logic';
 /** getElementById that assumes the element exists (all ids are in index.html). */
 export const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 export let cv: HTMLCanvasElement;
@@ -8,6 +9,8 @@ export let isTouch: boolean;
 export const rnd = (n: number): number=>Math.floor(Math.random()*n);
 export const keys: Record<string, boolean> = {};
 export const codes: Record<string, boolean> = {};
+/** keys pressed since the last game update, so a very quick tap still counts */
+export const tapped = new Set<string>();
 export const touchSprint = [false,false,false,false];
 export const touchThrow = [false,false,false,false];
 export const GATE_COLS = ['#4fc3ff','#7dff6a','#ff5ad9','#ffd84a'];

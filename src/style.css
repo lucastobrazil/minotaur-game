@@ -82,3 +82,12 @@ body.haspad .padHint{display:block}
 #padStatus{font-size:14px;font-weight:600;color:#8fd18f;margin-top:10px;min-height:18px}
 .stats{display:flex;gap:10px;justify-content:center;margin:10px 0 4px}
 .stats div{background:#211c18;border-radius:12px;padding:8px 12px;font-weight:600}
+
+#bossBar{position:absolute;left:50%;top:56px;transform:translateX(-50%);display:none;flex-direction:column;align-items:center;gap:4px;z-index:3;pointer-events:none}
+#bossBar.on{display:flex}
+#bossBar .bn{font-family:'Cinzel Decorative',serif;font-weight:700;color:#e0a95a;text-shadow:0 2px 0 #000;font-size:16px}
+#bossBar .bs{display:flex;gap:5px}
+#bossBar i{display:block;width:56px;height:12px;border-radius:4px;background:linear-gradient(#e0442a,#8e1f1f);border:2px solid #2a1a10;transition:opacity .3s,transform .3s}
+#bossBar i.lost{opacity:.15;transform:scale(.85)}
+.hearts{font-size:13px;margin-left:4px;letter-spacing:-1px;white-space:nowrap}
+#trophies{font-weight:700;color:#ffd36a;margin:4px 0 2px;min-height:4px}

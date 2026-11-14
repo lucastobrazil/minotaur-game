@@ -8,7 +8,8 @@ export type CamMode = 'near' | 'map' | 'fp';
 export type Difficulty = 'sleepy' | 'speedy';
 export type Grip = 'sideways' | 'upright';
 export type Axis = 'x' | 'z';
-export type ItemId = 'fireball';
+export type ItemId = 'fireball' | 'sandals';
+export type Outfit = 'classic' | 'robe';
 
 export interface Player {
   /** current tile */
@@ -37,6 +38,12 @@ export interface Player {
   segGeo?: THREE.BufferGeometry;
   segMat?: THREE.Material;
   orb?: THREE.Group;
+  /** boss levels only */
+  hearts?: number;
+  ghost?: boolean;
+  /** winged sandals active until (ms) */
+  sandalsUntil?: number;
+  feet?: THREE.Sprite;
 }
 
 export type MinoMode = 'wander' | 'chase' | 'stunned';
@@ -163,6 +170,36 @@ export interface DoorParts {
   exitLight: THREE.PointLight;
 }
 
+export type BossMode = 'stalk' | 'windup' | 'charge' | 'stunned' | 'hurt' | 'dead';
+
+export interface Boss {
+  x: number; y: number;
+  px: number; py: number;
+  hp: number; maxHp: number;
+  mode: BossMode;
+  modeUntil: number;
+  next: number;
+  stalkStart: number;
+  dir: Vec2;
+  face: number;
+  /** which boss fight this is (1 = first) */
+  num: number;
+  say: string;
+  sayUntil: number;
+  deadT: number;
+  flashUntil: number;
+  mesh: THREE.Group & { userData: MinoParts };
+  bubble: HTMLDivElement;
+}
+
+export interface Brazier {
+  x: number; y: number;
+  readyAt: number;
+  torch: Torch;
+}
+
+export interface HeartPickup { x: number; y: number; s: THREE.Sprite; born: number }
+
 export interface GameState {
   // maze
   W: number; H: number;
@@ -198,6 +235,17 @@ export interface GameState {
   fx: Effect[];
   nextChestT: number;
   carry: (ItemId | null)[];
+  // boss levels
+  isBoss: boolean;
+  boss: Boss | null;
+  braziers: Brazier[];
+  heartPickups: HeartPickup[];
+  maxHearts: number;
+  darkTarget: number;
+  darkness: number;
+  bossWins: number;
+  robeUnlocked: boolean;
+  outfit: Outfit;
   // rendering
   levelGroup: THREE.Group;
   fogDirty: boolean;

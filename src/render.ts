@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { G } from './state';
 import type { Minotaur, Player } from './types';
+import { syncBoss } from './boss';
 import { $, TRAIL, stage } from './core';
-import { camPos, camera, glowSprite, renderer, scene } from './scene';
+import { ITEM_ICON } from './items';
+import { camPos, camera, glowSprite, hemi, moon, renderer, scene } from './scene';
 
 /* ---------- 3D sync & camera ---------- */
 /** Interpolate between two angles the short way round. */
@@ -101,9 +103,17 @@ export function sync(now: number, dt: number){
     if(c.opened>0){const t=Math.min(1,(now-c.opened)/400);u.lid.rotation.x=-1.9*t;if(now-c.opened>1500)c.g.scale.setScalar(1.35*Math.max(.01,1-(now-c.opened-1500)/1000))}
   }
   for(let i=G.fx.length-1;i>=0;i--){const e=G.fx[i];e.t+=dt;e.s.position.addScaledVector(e.v,dt);e.v.y-=dt*1.5;e.s.material.opacity=Math.max(0,1-e.t/e.life);if(e.grow)e.s.scale.multiplyScalar(1+e.grow*dt);if(e.t>=e.life){scene.remove(e.s);e.s.material.dispose();G.fx.splice(i,1)}}
-  G.players.forEach((p,i)=>{if(p.orb){p.orb.visible=p.item==='fireball';(p.orb.children[1] as THREE.Sprite).material.opacity=.7+Math.sin(now/120)*.2}
-    const iv=$('inv'+i);if(iv)iv.classList.toggle('on',p.item==='fireball');const tb=$('throw'+i);if(tb)tb.classList.toggle('ready',p.item==='fireball')});
+  G.players.forEach((p,i)=>{
+    if(p.orb){p.orb.visible=!!p.item&&!p.ghost;const glow=p.orb.children[1] as THREE.Sprite;glow.material.opacity=.7+Math.sin(now/120)*.2;glow.material.color.set(p.item==='sandals'?'#ffd36a':'#ff6a1a')}
+    if(p.feet){p.feet.visible=(p.sandalsUntil??0)>now;p.feet.material.opacity=.6+Math.sin(now/80)*.3}
+    const iv=$('inv'+i);if(iv){iv.classList.toggle('on',!!p.item);iv.textContent=p.item?ITEM_ICON[p.item]:''}
+    const tb=$('throw'+i);if(tb){tb.classList.toggle('ready',!!p.item);tb.textContent=p.item?ITEM_ICON[p.item]:'🔥'}
+    const hs=$('hearts'+i);if(hs){hs.style.display=G.isBoss?'':'none';hs.textContent=p.ghost?'👻':'❤️'.repeat(p.hearts??0)+'🖤'.repeat(Math.max(0,G.maxHearts-(p.hearts??0)))}
+  });
   for(const m of G.minos){if((m.stunUntil??0)>now&&m.mesh){const on=Math.sin(now/55)>0;m.mesh.userData.mats.forEach(mt=>{mt.emissive.set(on?'#ff9a3a':'#000000');mt.emissiveIntensity=on?.8:1});m.mesh.userData.head.rotation.z=Math.sin(now/90)*.35;m.mesh.userData.eyeMat.color.set('#552010')}}
+  syncBoss(now,dt);
+  // the last phase of a boss fight is fought in the dark
+  hemi.intensity=.55-.42*G.darkness;moon.intensity=.5-.42*G.darkness;
   drawMini(now);
   G.players.forEach((p,i)=>{const b=$('stb'+i);if(b){b.style.width=(p.stamina*100)+'%';b.style.background=p.tired?'#a33':TRAIL[i]}});
   // camera
@@ -115,7 +125,8 @@ export function sync(now: number, dt: number){
     dist=Math.max((G.H*Math.sin(pitch)+1.5)/(2*tan),(G.W+3)/(2*tan*aspect))*1.22;
   }else{
     let minX=1e9,maxX=-1e9,minZ=1e9,maxZ=-1e9;
-    G.players.forEach(p=>{minX=Math.min(minX,p.px);maxX=Math.max(maxX,p.px);minZ=Math.min(minZ,p.py);maxZ=Math.max(maxZ,p.py)});
+    const pts=G.players.map(p=>({px:p.px,py:p.py}));if(G.boss&&G.boss.mode!=='dead')pts.push({px:G.boss.px,py:G.boss.py});
+    pts.forEach(p=>{minX=Math.min(minX,p.px);maxX=Math.max(maxX,p.px);minZ=Math.min(minZ,p.py);maxZ=Math.max(maxZ,p.py)});
     tx=(minX+maxX)/2;tz=(minZ+maxZ)/2;
     const sx=maxX-minX+5,sz=maxZ-minZ+5;
     dist=Math.max(9,Math.max(sz*Math.sin(pitch)/(2*tan),sx/(2*tan*aspect))*1.1);

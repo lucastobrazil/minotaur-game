@@ -14,8 +14,9 @@ import * as items from './items';
 import * as render from './render';
 import * as hud from './hud';
 import * as controllers from './controllers';
+import * as boss from './boss';
 
-const modules = { core, audio, ambience, textures, scene, maze, level, input, logic, firstPerson, items, render, hud, controllers };
+const modules = { core, audio, ambience, textures, scene, maze, level, input, logic, firstPerson, items, render, hud, controllers, boss };
 
 // Test/debug bridge: on file:// or with ?debug, expose game state and functions as globals
 // so the headless browser tests can drive the game.
@@ -31,4 +32,5 @@ scene.init();
 input.init();
 render.init();
 hud.init();
+boss.init();
 controllers.init();

@@ -2,7 +2,7 @@
 
 A 3D labyrinth game for 1–4 players, played in the browser with keyboard, touch, Joy-Cons or other gamepads.
 
-Find the golden thread to open the exit, avoid the Minotaur, and escape. Features include random mazes, fog of war with a minimap, lever gates, sprint, trader chests with fireballs, a final chase, first-person split screen, and a procedural soundscape.
+Find the golden thread to open the exit, avoid the Minotaur, and escape. Features include random mazes, fog of war with a minimap, lever gates, sprint, trader chests with fireballs, a final chase, first-person split screen, a procedural soundscape, and a boss fight against the Great Minotaur after every three mazes.
 
 ## Development
 
@@ -39,6 +39,7 @@ The code was split out of the original single-file prototype (kept in `legacy/in
 | `src/render.ts` | Per-frame sync of 3D objects, camera, minimap, split-screen rendering |
 | `src/hud.ts` | HUD (stamina, fireball slots), toasts, player count, difficulty, camera modes |
 | `src/controllers.ts` | Choose-controllers screen, start game, main loop |
+| `src/boss.ts` | Boss levels: arena, the Great Minotaur's stalk/charge/stun fight, braziers, hearts, ghosts and revives, rewards (robe, winged sandals) |
 
 On `file://` (or with `?debug` in the URL) `main.ts` exposes the game state and functions as globals so the tests can drive the game.
 
@@ -57,6 +58,16 @@ On `file://` (or with `?debug` in the URL) `main.ts` exposes the game state and 
 | `t19.py` | Pro Controller + single Joy-Cons + joined pair |
 | `t20.py` | Trader chests, fireball, stun |
 | `t23.py` | Four players: controller assignment, keyboard sets, split screen |
+| `t24.py` | Boss level: charge/stun cycle, braziers, fireball hits and bounces, hearts, ghosts, revive, restart, defeat rewards, winged sandals |
+
+## Boss levels
+
+Every 4th level (4, 8, 12…) is an arena fight against the Great Minotaur:
+
+- He stalks the nearest hero, winds up, and charges in a straight line until he crashes into a wall or pillar. While he's dazed, a fireball hurts him; otherwise it bounces off. Three hits win.
+- Braziers in the corners hand out fireballs (they relight after 7 seconds). Each hit brings minions, and the last phase is fought in the dark. A heart pickup appears after each hit.
+- Hearts only exist in boss fights (3 on Restless, 2 on Hunting). At 0 a hero becomes a ghost; touching a living teammate revives them with 1 heart. If everyone is a ghost, the fight restarts.
+- First win unlocks the Minotaur-Slayer robe (saved in the browser, switchable on the start screen) and adds winged sandals (10 seconds of super speed) to trader chests.
 
 ## Roadmap
 
