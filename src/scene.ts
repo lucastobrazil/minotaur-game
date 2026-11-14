@@ -1,26 +1,27 @@
-// @ts-nocheck
-// Ported from the single-file prototype. Types are added incrementally.
 import * as THREE from 'three';
 import { G } from './state';
+import type { MinoParts } from './types';
 import { COLORS, cv } from './core';
 import { GLOW, canvasTex } from './textures';
 
 /* ---------- 3D setup ---------- */
-export let renderer;
+export let renderer: THREE.WebGLRenderer;
 export const SKY = '#161a28';
-export let scene;
-export let camera;
-export let moon;
-export let ground;
-export const M = (c,o={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.85,metalness:0},o));
-export const sph = (r,c,ws=16,hs=12)=>new THREE.Mesh(new THREE.SphereGeometry(r,ws,hs),typeof c==='string'?M(c):c);
-export const cyl = (rt,rb,h,c,s=12)=>new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,s),typeof c==='string'?M(c):c);
-export const box = (w,h,d,c)=>new THREE.Mesh(new THREE.BoxGeometry(w,h,d),typeof c==='string'?M(c):c);
-export const glowSprite = (color,size,op=1)=>{const s=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW,color,transparent:true,opacity:op,depthWrite:false,blending:THREE.AdditiveBlending}));s.scale.setScalar(size);return s};
-export const glowPool = (color,size,op)=>{const p=new THREE.Mesh(new THREE.PlaneGeometry(size,size),new THREE.MeshBasicMaterial({map:GLOW,color,transparent:true,opacity:op,depthWrite:false,blending:THREE.AdditiveBlending}));p.rotation.x=-Math.PI/2;return p};
-export let camPos;
-export function shadowAll(g){g.traverse(o=>{if(o.isMesh&&!(o.material&&o.material.blending===THREE.AdditiveBlending)){o.castShadow=true;o.receiveShadow=true}})}
-export function makePlayer(i){
+export let scene: THREE.Scene & { fog: THREE.Fog };
+export let camera: THREE.PerspectiveCamera;
+export let moon: THREE.DirectionalLight;
+export let ground: THREE.Mesh;
+export const M = (c: Colorish, o: THREE.MeshStandardMaterialParameters={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.85,metalness:0},o));
+type MatLike = string | THREE.Material;
+type Colorish = string | number | THREE.Color;
+export const sph = (r: number, c: MatLike, ws=16, hs=12)=>new THREE.Mesh(new THREE.SphereGeometry(r,ws,hs),typeof c==='string'?M(c):c);
+export const cyl = (rt: number, rb: number, h: number, c: MatLike, s=12)=>new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,s),typeof c==='string'?M(c):c);
+export const box = (w: number, h: number, d: number, c: MatLike)=>new THREE.Mesh(new THREE.BoxGeometry(w,h,d),typeof c==='string'?M(c):c);
+export const glowSprite = (color: Colorish, size: number, op=1)=>{const s=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW,color,transparent:true,opacity:op,depthWrite:false,blending:THREE.AdditiveBlending}));s.scale.setScalar(size);return s};
+export const glowPool = (color: Colorish, size: number, op: number)=>{const p=new THREE.Mesh(new THREE.PlaneGeometry(size,size),new THREE.MeshBasicMaterial({map:GLOW,color,transparent:true,opacity:op,depthWrite:false,blending:THREE.AdditiveBlending}));p.rotation.x=-Math.PI/2;return p};
+export let camPos: THREE.Vector3;
+export function shadowAll(g: THREE.Object3D){g.traverse(o=>{if(o instanceof THREE.Mesh&&!((o.material as THREE.Material)?.blending===THREE.AdditiveBlending)){o.castShadow=true;o.receiveShadow=true}})}
+export function makePlayer(i: number): THREE.Group{
   const g=new THREE.Group(),skin=M('#e8bf98'),bronze=M('#a87a3a',{metalness:.6,roughness:.4});
   const body=cyl(.14,.24,.42,COLORS[i],18);body.position.y=.21;g.add(body);
   const belt=cyl(.195,.205,.05,'#4a2f1a',18);belt.position.y=.24;g.add(belt);
@@ -43,10 +44,10 @@ export function makePlayer(i){
   const light=new THREE.PointLight('#ffb066',1.5*[1,1,.8,.65,.55][Math.max(1,G.numPlayers)],7,1.6);light.position.set(0,1.3,.2);g.add(light);
   return g;
 }
-export function makeMino(){
+export function makeMino(): THREE.Group & { userData: MinoParts }{
   const g=new THREE.Group(),fur=M('#3a2a20',{roughness:1}),furD=M('#241913',{roughness:1}),hide=M('#5a4033'),bone=M('#d6c7a8',{roughness:.6}),hoof=M('#120d0a'),bronze=M('#9a6a2a',{metalness:.6,roughness:.4});
   const eyeMat=new THREE.MeshBasicMaterial({color:'#ff4a1a'});
-  const legs=[],arms=[];
+  const legs: THREE.Group[]=[],arms: THREE.Group[]=[];
   for(const s of [-1,1]){
     const leg=new THREE.Group();leg.position.set(s*.13,.5,0);
     const th=cyl(.1,.075,.48,furD,10);th.position.y=-.22;leg.add(th);
@@ -79,10 +80,11 @@ export function makeMino(){
   const ring=new THREE.Mesh(new THREE.TorusGeometry(.055,.012,8,16),bronze);ring.position.set(0,-.16,.37);head.add(ring);
   const mane=sph(.14,furD);mane.scale.set(1.4,.6,1);mane.position.set(0,.2,-.05);head.add(mane);
   shadowAll(g);
-  g.userData={legs,arms,head,eyeMat,mats:[fur,furD,hide,bone]};
-  return g;
+  const parts: MinoParts={legs,arms,head,eyeMat,mats:[fur,furD,hide,bone]};
+  g.userData=parts;
+  return g as THREE.Group & { userData: MinoParts };
 }
-export function labelTexture(text,bg,fg){
+export function labelTexture(text: string, bg: string, fg: string){
   return canvasTex(128,128,(x)=>{
     x.fillStyle=bg;x.beginPath();x.arc(64,64,56,0,Math.PI*2);x.fill();x.lineWidth=6;x.strokeStyle='#efe2c8';x.stroke();
     x.fillStyle=fg;x.font='700 '+(text.length>2?34:56)+'px Fredoka, sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(text,64,68);
@@ -99,7 +101,7 @@ export function init() {
   renderer = new THREE.WebGLRenderer({canvas:cv,antialias:true});
   renderer.shadowMap.enabled=true;
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-  scene = new THREE.Scene();
+  scene = new THREE.Scene() as THREE.Scene & { fog: THREE.Fog };
   scene.background=new THREE.Color(SKY);
   scene.fog=new THREE.Fog(SKY,10,30);
   camera = new THREE.PerspectiveCamera(50,1,.1,300);

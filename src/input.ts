@@ -1,13 +1,11 @@
-// @ts-nocheck
-// Ported from the single-file prototype. Types are added incrementally.
-import * as THREE from 'three';
 import { G } from './state';
+import type { Grip, Vec2 } from './types';
 import { initAudio, tone } from './audio';
 import { assignInput, nextLevel, pause, renderPadList, requestStart, resume } from './controllers';
 import { $, codes, keys, touchDir, touchSprint, touchThrow } from './core';
 import { setPlayers, showToast, toggleCam } from './hud';
 
-export function throwHeld(i){
+export function throwHeld(i: number): boolean{
   const c=[['ControlRight','KeyM'],['KeyF'],['KeyO'],['Numpad9']][i].slice();
   if(G.numPlayers===1)c.push('KeyF','ControlLeft');
   if(c.some(k=>codes[k])||touchThrow[i])return true;
@@ -15,7 +13,7 @@ export function throwHeld(i){
   for(const p of padsFor(i))if(p.buttons[1]&&p.buttons[1].pressed)return true;
   return false;
 }
-export function sprintHeld(i){
+export function sprintHeld(i: number): boolean{
   const c=[['Enter','NumpadEnter','ShiftRight','Slash','Period'],['ShiftLeft','KeyQ','KeyE'],['KeyU'],['Numpad7']][i].slice();
   if(G.numPlayers===1)c.push('ShiftLeft','KeyQ','KeyE','Space');
   if(c.some(k=>codes[k])||touchSprint[i])return true;
@@ -24,20 +22,20 @@ export function sprintHeld(i){
   for(const p of myPads)for(const b of (p.mapping==='standard'?[0,2,3,6,7]:[0,2,3,6,7,10,11]))if(p.buttons[b]&&p.buttons[b].pressed)return true;
   return false;
 }
-export function padReport(){
+export function padReport(): string{
   const n=G.pads.length,pill=$('padPill');
   if(n||G.everPad){pill.style.display='';pill.textContent='🎮 '+n;pill.style.background=n?'rgba(95,224,122,.18)':'rgba(255,80,60,.3)'}
   if(n===1&&G.numPlayers===2&&splitMode())return `1 controller (${G.pads[0].id.split('(')[0].trim()}) shared: left side = Theseus, right side = Ariadne. Grip: ${G.grip}.`;
   return n?`${n} controller${n>1?'s':''} connected. Press buttons to see which one lights up:`
           :'No controllers found. Click or tap the game once, then press a button on each Joy-Con. The browser only notices a controller after a button press.';
 }
-export function showPauseMsg(t){const m=$('pauseMsg');m.textContent=t;m.style.display=t?'':'none'}
+export function showPauseMsg(t: string){const m=$('pauseMsg');m.textContent=t;m.style.display=t?'':'none'}
 export function pollPads(){
-  let list=[];try{list=Array.from(navigator.getGamepads?navigator.getGamepads():[]).filter(Boolean)}catch(e){}
+  let list: Gamepad[]=[];try{list=Array.from(navigator.getGamepads?navigator.getGamepads():[]).filter((p): p is Gamepad=>!!p)}catch(e){}
   G.pads=list.sort((a,b)=>a.index-b.index);
   if(G.pads.length)G.everPad=true;
   if(G.pads.length!==G.lastPadCount){G.lastPadCount=G.pads.length;padReport()}
-  let selPress=false,menuPress=false,camPress=false,nx=0,ny=0;const edged=new Set();
+  let selPress=false,menuPress=false,camPress=false,nx=0,ny=0;const edged=new Set<number>();
   for(const p of G.pads){
     const prev=G.prevBtn[p.index]||[],std=p.mapping==='standard';
     p.buttons.forEach((b,i)=>{
@@ -77,19 +75,19 @@ export function pollPads(){
   else if(G.state==='play'){if(menuPress)pause();if(camPress&&!splitMode())toggleCam()}
   else if(G.state==='pause'){if(menuPress)resume();else if(selPress&&G.navFocus)G.navFocus.click()}
 }
-export function navItems(){
+export function navItems(): HTMLElement[]{
   const ov=['titleOv','winOv','pauseOv'].map(id=>$(id)).find(o=>!o.classList.contains('hidden'));
-  return ov?[...ov.querySelectorAll('button')].filter(b=>b.offsetParent!==null):[];
+  return ov?[...ov.querySelectorAll<HTMLElement>('button')].filter(b=>b.offsetParent!==null):[];
 }
-export function defaultFocus(items){return items.find(b=>b.classList.contains('go'))||items[0]}
-export function setFocus(el){
-  document.querySelectorAll('.focus').forEach(e=>e.classList.remove('focus'));
+export function defaultFocus(items: HTMLElement[]): HTMLElement{return items.find(b=>b.classList.contains('go'))||items[0]}
+export function setFocus(el: HTMLElement | null){
+  document.querySelectorAll<HTMLElement>('.focus').forEach(e=>e.classList.remove('focus'));
   G.navFocus=el;if(el){el.classList.add('focus');try{el.scrollIntoView({block:'nearest'})}catch(e){}}
 }
-export function navMove(dx,dy){
+export function navMove(dx: number, dy: number){
   const items=navItems();if(!items.length||!G.navFocus)return;
   const r=G.navFocus.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
-  let best=null,bs=1e9;
+  let best: HTMLElement | null=null,bs=1e9;
   for(const it of items){
     if(it===G.navFocus)continue;
     const q=it.getBoundingClientRect(),ddx=q.left+q.width/2-cx,ddy=q.top+q.height/2-cy;
@@ -100,23 +98,25 @@ export function navMove(dx,dy){
   }
   if(best){setFocus(best);tone(520,.04,'triangle',.05)}
 }
-export function hatDir(v){
+/** Decode a non-standard controller's d-pad "hat" axis into a direction. */
+export function hatDir(v: number | undefined): [number, number] | null{
   if(v===undefined||v>1.05||v<-1.05)return null;
   const i=Math.round((v+1)*3.5)%8;
-  return[[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]][i];
+  const dirs: [number, number][]=[[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]];
+  return dirs[i];
 }
-export const isCombo = p=>!!p&&/L\+R|200e|Joy-Con \(L\/R\)/i.test(p.id);
+export const isCombo = (p: Gamepad | undefined): boolean=>!!p&&/L\+R|200e|Joy-Con \(L\/R\)/i.test(p.id);
 // two players but only one controller (Chrome joins a pair of Joy-Cons into one device): split it in half
-export const newAssign = ()=>[new Set(),new Set(),new Set(),new Set()];
-export const ownerOf = idx=>G.assign.findIndex((s,k)=>k<G.numPlayers&&s.has(idx));
-export const padName = p=>isCombo(p)?'Joy-Con pair':/Joy-Con \(L\)/i.test(p.id)?'Joy-Con (L)':/Joy-Con \(R\)/i.test(p.id)?'Joy-Con (R)':(p.id.split('(')[0].trim()||'Controller');
-export const isSingleJoy = p=>/Joy-Con/i.test(p.id)&&!isCombo(p);
+export const newAssign = (): Set<number>[]=>[new Set(),new Set(),new Set(),new Set()];
+export const ownerOf = (idx: number): number=>G.assign.findIndex((s,k)=>k<G.numPlayers&&s.has(idx));
+export const padName = (p: Gamepad): string=>isCombo(p)?'Joy-Con pair':/Joy-Con \(L\)/i.test(p.id)?'Joy-Con (L)':/Joy-Con \(R\)/i.test(p.id)?'Joy-Con (R)':(p.id.split('(')[0].trim()||'Controller');
+export const isSingleJoy = (p: Gamepad): boolean=>/Joy-Con/i.test(p.id)&&!isCombo(p);
 // Chrome can list two Joy-Cons three times: left, right, and both joined as a "pair".
 // When the single Joy-Cons are listed, the joined pair is only a copy, so it's ignored.
-export const pairIsCopy = p=>isCombo(p)&&G.pads.some(isSingleJoy);
-export const usable = ()=>G.pads.filter(p=>!pairIsCopy(p));
+export const pairIsCopy = (p: Gamepad): boolean=>isCombo(p)&&G.pads.some(isSingleJoy);
+export const usable = (): Gamepad[]=>G.pads.filter(p=>!pairIsCopy(p));
 // which connected controllers belong to player i
-export function padsFor(i){
+export function padsFor(i: number): Gamepad[]{
   if(G.numPlayers===1)return G.pads;
   const u=usable();
   const mine=u.filter(p=>G.assign[i].has(p.index));
@@ -129,11 +129,11 @@ export function padsFor(i){
   const slot=waiting.indexOf(i);
   return free[slot]?[free[slot]]:[];
 }
-export const splitPad = ()=>G.pads.find(p=>p.index===G.splitIdx)||usable()[0]||G.pads[0];
-export const splitMode = ()=>G.numPlayers===2&&(usable().length===1||(G.splitIdx!==null&&G.pads.some(p=>p.index===G.splitIdx)));
-export function rotGrip(nx,ny,side){if(G.grip!=='sideways')return[nx,ny];return side===0?[ny,-nx]:[-ny,nx]}
-export function splitDir(p,i){
-  let nx=0,ny=0;const a=p.axes,pr=k=>p.buttons[k]&&p.buttons[k].pressed;
+export const splitPad = (): Gamepad=>G.pads.find(p=>p.index===G.splitIdx)||usable()[0]||G.pads[0];
+export const splitMode = (): boolean=>G.numPlayers===2&&(usable().length===1||(G.splitIdx!==null&&G.pads.some(p=>p.index===G.splitIdx)));
+export function rotGrip(nx: number, ny: number, side: number): [number, number]{if(G.grip!=='sideways')return[nx,ny];return side===0?[ny,-nx]:[-ny,nx]}
+export function splitDir(p: Gamepad, i: number): [number, number]{
+  let nx=0,ny=0;const a=p.axes,pr=(k: number)=>p.buttons[k]&&p.buttons[k].pressed;
   if(i===0){
     if(a.length>=2){if(Math.abs(a[0])>.5)nx+=Math.sign(a[0]);if(Math.abs(a[1])>.5)ny+=Math.sign(a[1])}
     if(pr(12))ny-=1;if(pr(13))ny+=1;if(pr(14))nx-=1;if(pr(15))nx+=1;
@@ -143,8 +143,8 @@ export function splitDir(p,i){
   }
   return rotGrip(Math.sign(nx),Math.sign(ny),i);
 }
-export function setGrip(g){G.grip=g;try{localStorage.setItem('minoGrip',g)}catch(e){}document.querySelectorAll('[data-grip]').forEach(b=>b.classList.toggle('sel',b.dataset.grip===g))}
-export function getDir(i){
+export function setGrip(g: Grip){G.grip=g;try{localStorage.setItem('minoGrip',g)}catch(e){}document.querySelectorAll<HTMLElement>('[data-grip]').forEach(b=>b.classList.toggle('sel',b.dataset.grip===g))}
+export function getDir(i: number): Vec2 | null{
   let x=0,y=0;
   const KS=[['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'],['KeyA','KeyD','KeyW','KeyS'],['KeyJ','KeyL','KeyI','KeyK'],['Numpad4','Numpad6','Numpad8','Numpad5']];
   const sets=[KS[i]];if(G.numPlayers===1)sets.push(KS[1]);
@@ -179,22 +179,22 @@ export function init() {
   });
   addEventListener('keyup',e=>{keys[e.key.length===1?e.key.toLowerCase():e.key]=false;codes[e.code]=false});
   addEventListener('blur',()=>{for(const k in keys)keys[k]=false;for(const k in codes)codes[k]=false});
-  document.querySelectorAll('.sprint:not(.throw)').forEach(b=>{
-    const p=+b.dataset.p;
+  document.querySelectorAll<HTMLElement>('.sprint:not(.throw)').forEach(b=>{
+    const p=Number(b.dataset.p);
     b.addEventListener('pointerdown',e=>{e.preventDefault();initAudio();touchSprint[p]=true;b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}});
     const off=()=>{touchSprint[p]=false;b.classList.remove('on')};
     b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('lostpointercapture',off);
   });
-  document.querySelectorAll('.sprint.throw').forEach(b=>{
-    const p=+b.dataset.p;
+  document.querySelectorAll<HTMLElement>('.sprint.throw').forEach(b=>{
+    const p=Number(b.dataset.p);
     b.addEventListener('pointerdown',e=>{e.preventDefault();initAudio();touchThrow[p]=true;b.classList.add('on')});
     const off=()=>{touchThrow[p]=false;b.classList.remove('on')};
     b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('pointerleave',off);
   });
-  document.querySelectorAll('.pad button').forEach(b=>{
-    const p=+b.dataset.p,x=+b.dataset.x,y=+b.dataset.y;
-    const on=e=>{e.preventDefault();initAudio();touchDir[p]={x,y};b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}};
-    const off=e=>{if(touchDir[p].x===x&&touchDir[p].y===y)touchDir[p]={x:0,y:0};b.classList.remove('on')};
+  document.querySelectorAll<HTMLElement>('.pad button').forEach(b=>{
+    const p=Number(b.dataset.p),x=Number(b.dataset.x),y=Number(b.dataset.y);
+    const on=(e: PointerEvent)=>{e.preventDefault();initAudio();touchDir[p]={x,y};b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}};
+    const off=()=>{if(touchDir[p].x===x&&touchDir[p].y===y)touchDir[p]={x:0,y:0};b.classList.remove('on')};
     b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('lostpointercapture',off);
   });
   addEventListener('gamepadconnected',e=>{G.everPad=true;pollPads();showToast('🎮 Controller connected',1600)});
@@ -204,6 +204,6 @@ export function init() {
     if(G.state==='play'){pause();showPauseMsg('🎮 A controller disconnected. Press any button on it to reconnect, then press a button again to keep playing.')}
     else showToast('🎮 Controller disconnected. Press a button on it to reconnect.',3000);
   });
-  try{G.grip=localStorage.getItem('minoGrip')||'sideways'}catch(e){}
+  try{G.grip=localStorage.getItem('minoGrip')==='upright'?'upright':'sideways'}catch(e){}
   G.assign = newAssign();
 }

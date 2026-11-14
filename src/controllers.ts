@@ -1,16 +1,13 @@
-// @ts-nocheck
-// Ported from the single-file prototype. Types are added incrementally.
-import * as THREE from 'three';
 import { G } from './state';
+
 import { sfx } from './ambience';
 import { initAudio, tone } from './audio';
 import { $, COLORS, KEYDESC, NAMES, stage } from './core';
 import { fmt, hideAll, levelIntro, setPlayers, showToast, toggleCam } from './hud';
 import { isCombo, newAssign, ownerOf, padName, padReport, pairIsCopy, pollPads, setGrip, showPauseMsg, splitMode, usable } from './input';
-import { minoStep, update } from './items';
 import { computeSight, newLevel } from './level';
+import { minoStep, update } from './logic';
 import { renderView, resize, sync } from './render';
-
 // ---------- choosing controllers by pressing a button on each ----------
 export function needAssign(){
   if(G.numPlayers<2||usable().length<2)return false;
@@ -19,14 +16,14 @@ export function needAssign(){
   return ok<Math.min(G.numPlayers,usable().length);
 }
 export function requestStart(){initAudio();if(needAssign())openAssign(startGame,()=>{G.state='title';$('titleOv').classList.remove('hidden')});else startGame()}
-export function openAssign(after,back){
+export function openAssign(after: () => void, back: () => void){
   hideAll();G.state='assign';G.assignAfter=after;G.assignBack=back;
   G.assign=newAssign();G.splitIdx=null;G.assignStep=0;G.assignDoneT=0;buildSlots();
   $('assignOv').classList.remove('hidden');renderAssign();renderPadList(true);
 }
 export function finishAssign(){const a=G.assignAfter;hideAll();if(a)a()}
 export function freePads(){return usable().filter(p=>ownerOf(p.index)<0)}
-export function assignInput(edged,menuPress){
+export function assignInput(edged: Set<number>, menuPress: boolean){
   const now=performance.now();
   if(G.assignDoneT){
     // copies of the last press that arrive a moment later belong to the same player
@@ -54,7 +51,7 @@ export function buildSlots(){
   $('slots').innerHTML=[...Array(G.numPlayers).keys()].map(i=>`<div class="slot" id="slot${i}"><span class="sw" style="background:${COLORS[i]}"></span><div><b>${NAMES[i]}</b> (Player ${i+1})<div class="st" id="slotTxt${i}"></div></div></div>`).join('');
 }
 export function renderAssign(){
-  const name=i=>{const ps=G.pads.filter(p=>G.assign[i].has(p.index));return ps.length?padName(ps[0])+(ps.length>1?' (copy ignored)':''):''};
+  const name=(i: number)=>{const ps=G.pads.filter(p=>G.assign[i].has(p.index));return ps.length?padName(ps[0])+(ps.length>1?' (copy ignored)':''):''};
   for(let i=0;i<G.numPlayers;i++){
     const slot=$('slot'+i),txt=$('slotTxt'+i),has=G.assign[i].size>0;if(!slot)continue;
     slot.classList.toggle('active',G.assignStep===i);slot.classList.toggle('done',has);
@@ -70,7 +67,7 @@ export function renderAssign(){
   $('assignDone').classList.toggle('alt',!all);
 }
 export const now0 = ()=>performance.now();
-export function renderPadList(force){
+export function renderPadList(force = false){
   const t=performance.now();if(!force&&t-G.lastList<80)return;G.lastList=t;
   const html=G.pads.length?G.pads.map(p=>{
     const on=p.buttons.some(b=>b.pressed)||p.axes.some((v,k)=>Math.abs(v)>.5&&Math.abs(v)<=1.05&&!(k===9&&p.mapping!=='standard'));
@@ -98,7 +95,7 @@ export function win(){
 }
 export function pause(){if(G.state!=='play')return;G.state='pause';showPauseMsg('');G.torchNear=0;$('pauseOv').classList.remove('hidden')}
 export function resume(){if(G.state!=='pause')return;hideAll();G.state='play';const now=performance.now();G.players.forEach(p=>p.next=now);G.minos.forEach(m=>m.next=now+600)}
-export function frame(t){
+export function frame(t: number){
   {const r=stage.getBoundingClientRect();if(Math.abs(r.width-G.lastStageW)>1||Math.abs(r.height-G.lastStageH)>1){G.lastStageW=r.width;G.lastStageH=r.height;resize()}}
   const dt=Math.min(.05,(t-G.lastT)/1000||0);G.lastT=t;
   pollPads();
@@ -128,8 +125,9 @@ export function init() {
   $('camBtn').onclick=toggleCam;
   $('menuBtn').onclick=()=>{hideAll();G.state='title';G.gameActive=false;$('titleOv').classList.remove('hidden');G.level=1;newLevel()};
   $('pCamBtn').onclick=toggleCam;
-  $('pSndBtn').onclick=()=>$('muteBtn').onclick();
-  $('muteBtn').onclick=()=>{G.muted=!G.muted;$('muteBtn').textContent=G.muted?'🔇':'🔊';$('pSndBtn').textContent=G.muted?'🔇 Sound off':'🔊 Sound on';initAudio();if(G.master)G.master.gain.setTargetAtTime(G.muted?0:1,G.ac.currentTime,.05)};
+  const toggleMute=()=>{G.muted=!G.muted;$('muteBtn').textContent=G.muted?'🔇':'🔊';$('pSndBtn').textContent=G.muted?'🔇 Sound off':'🔊 Sound on';initAudio();if(G.master&&G.ac)G.master.gain.setTargetAtTime(G.muted?0:1,G.ac.currentTime,.05)};
+  $('pSndBtn').onclick=toggleMute;
+  $('muteBtn').onclick=toggleMute;
   addEventListener('pointerdown',initAudio,{once:true});
   addEventListener('keydown',initAudio,{once:true});
   document.addEventListener('visibilitychange',()=>{if(document.hidden){pause();if(G.ac)G.ac.suspend()}else if(G.ac)G.ac.resume()});

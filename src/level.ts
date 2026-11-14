@@ -1,10 +1,10 @@
-// @ts-nocheck
-// Ported from the single-file prototype. Types are added incrementally.
 import * as THREE from 'three';
 import { G } from './state';
-import { noiseBurst, route } from './audio';
+import type { Axis, FireParts, Torch, Vec2 } from './types';
+import type { Cell } from './maze';
 import { $, GATE_COLS, TRAIL, rnd, stage } from './core';
-import { updateHUD } from './hud';
+import { buildStamina, updateHUD } from './hud';
+import { say } from './logic';
 import { genMaze, reach } from './maze';
 import { M, box, cyl, glowPool, glowSprite, makeMino, makePlayer, moon, renderer, scene, setDoorLabel, shadowAll, sph } from './scene';
 import { CAPTEX, GLOW, WALLTEX, canvasTex, speckle } from './textures';
@@ -12,22 +12,24 @@ import { CAPTEX, GLOW, WALLTEX, canvasTex, speckle } from './textures';
 /* ---------- level setup ---------- */
 export function dims(){
   const r=stage.getBoundingClientRect(),aspect=Math.max(.3,r.width/Math.max(1,r.height));
-  const long=Math.min(11+G.level*2,33);let c,rr;
+  const long=Math.min(11+G.level*2,33);let c: number,rr: number;
   if(aspect>=1){c=long;rr=Math.max(6,Math.round(long/aspect))}else{rr=long;c=Math.max(6,Math.round(long*aspect))}
-  return[c,rr];
+  return[c,rr] as const;
 }
-export function disposeGroup(g){g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>{if(m.map&&m.map!==GLOW&&m.map!==WALLTEX&&m.map!==CAPTEX)m.map.dispose();m.dispose()})}})}
-export function makeFire(scale=1){
+export function disposeGroup(g: THREE.Object3D){g.traverse(o=>{if(!(o instanceof THREE.Mesh||o instanceof THREE.Sprite))return;if(o.geometry)o.geometry.dispose();if(o.material){const ms: (THREE.Material & { map?: THREE.Texture | null })[]=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>{if(m.map&&m.map!==GLOW&&m.map!==WALLTEX&&m.map!==CAPTEX)m.map.dispose();m.dispose()})}})}
+export function makeFire(scale=1): Torch['fire']{
   const f=new THREE.Group();
   const outer=new THREE.Mesh(new THREE.ConeGeometry(.06*scale,.18*scale,8),new THREE.MeshBasicMaterial({color:'#ff7a26'}));outer.position.y=.09*scale;f.add(outer);
   const inner=new THREE.Mesh(new THREE.ConeGeometry(.032*scale,.11*scale,8),new THREE.MeshBasicMaterial({color:'#ffe08a'}));inner.position.y=.06*scale;f.add(inner);
   const glow=glowSprite('#ff8a3a',1.1*scale,.9);glow.position.y=.1*scale;f.add(glow);
-  f.userData={outer,inner,glow,seed:Math.random()*100,base:scale};
-  return f;
+  const parts: FireParts={outer,inner,glow,seed:Math.random()*100,base:scale};
+  f.userData=parts;
+  return f as Torch['fire'];
 }
-export function boxesGeo(list,U,V,keepBottom){
+/** One merged mesh of boxes [cx,cy,cz,sx,sy,sz] with world-space UVs (so textures line up across pieces). */
+export function boxesGeo(list: number[][], U: number, V: number, keepBottom = false): THREE.BufferGeometry{
   const tmp=new THREE.BoxGeometry(1,1,1).toNonIndexed(),P=tmp.attributes.position.array,N=tmp.attributes.normal.array;
-  const pos=[],nor=[],uv=[];
+  const pos: number[]=[],nor: number[]=[],uv: number[]=[];
   for(const [cx,cy,cz,sx,sy,sz] of list){
     for(let i=0;i<P.length;i+=9){
       if(N[i+1]<-.5&&!keepBottom)continue; // wall bottoms are never seen (cap undersides are, from first person)
@@ -46,7 +48,7 @@ export function boxesGeo(list,U,V,keepBottom){
 export function buildLevel(){
   scene.remove(G.levelGroup);disposeGroup(G.levelGroup);G.levelGroup=new THREE.Group();scene.add(G.levelGroup);
   G.torches=[];
-  const isWall=(x,y)=>x>=0&&y>=0&&x<G.W&&y<G.H&&G.grid[y][x]===1;
+  const isWall=(x: number, y: number)=>x>=0&&y>=0&&x<G.W&&y<G.H&&G.grid[y][x]===1;
   // floor: worn flagstones
   const TP=32;
   const ftex=canvasTex(G.W*TP,G.H*TP,(x)=>{
@@ -203,7 +205,7 @@ export function buildLevel(){
     p.segGeo=segGeo;p.segMat=new THREE.MeshBasicMaterial({color:TRAIL[i],transparent:true,opacity:.75});
   });
   // minotaurs
-  document.querySelectorAll('.bubble').forEach(b=>b.remove());
+  document.querySelectorAll<HTMLElement>('.bubble').forEach(b=>b.remove());
   G.minos.forEach(m=>{
     m.mesh=makeMino();m.mesh.scale.setScalar(1.15);m.mesh.position.set(m.x,0,m.y);G.levelGroup.add(m.mesh);
     m.bubble=document.createElement('div');m.bubble.className='bubble';stage.appendChild(m.bubble);
@@ -220,7 +222,7 @@ export function newLevel(){
   G.exit={x:-5,y:-5,axis:'x'};
   G.grid=genMaze(c,r).g;
   // random start corner, exit on a far edge
-  const sc=[[0,0],[c-1,0],[0,r-1],[c-1,r-1]][rnd(4)];
+  const corners: Cell[]=[[0,0],[c-1,0],[0,r-1],[c-1,r-1]];const sc=corners[rnd(4)];
   const sx=2*sc[0]+1,sy=2*sc[1]+1;
   if(Math.random()<.5){
     const ex=sc[0]===0?G.W-1:0;const half=sc[1]===0?[Math.floor(r/2),r]:[0,Math.ceil(r/2)];
@@ -230,30 +232,30 @@ export function newLevel(){
     G.exit={x:2*(half[0]+rnd(half[1]-half[0]))+1,y:ey,axis:'z'};
   }
   G.grid[G.exit.y][G.exit.x]=0;
-  G.gates=[];G.gateMap=null;
+  G.gates=[];G.gateMap=new Int16Array(0);
   G.players=[];
-  const near=[];{const d0=reach(sx,sy);for(let k=0;k<d0.length;k++)if(d0[k]>=0)near.push([d0[k],k]);near.sort((a,b)=>a[0]-b[0])}
+  const near: [number, number][]=[];{const d0=reach(sx,sy);for(let k=0;k<d0.length;k++)if(d0[k]>=0)near.push([d0[k],k]);near.sort((a,b)=>a[0]-b[0])}
   for(let i=0;i<G.numPlayers;i++){
     const k=(near[i]||near[0])[1],px=k%G.W,py=(k/G.W)|0;
     G.players.push({x:px,y:py,px,py,sx:px,sy:py,next:0,inv:0,last:{x:0,y:1},face:0,stamina:1,tired:false,sprinting:false});
   }
   placeGates(sx,sy);
   const dist=reach(sx,sy);let maxd=0;for(const d of dist)if(d>maxd)maxd=d;
-  const isLever=(x,y)=>G.gates.some(g=>g.lx===x&&g.ly===y);
-  const cells=[];for(let y=1;y<G.H;y+=2)for(let x=1;x<G.W;x+=2)if(dist[y*G.W+x]>=0)cells.push([x,y,dist[y*G.W+x]]);
+  const isLever=(x: number, y: number)=>G.gates.some(g=>g.lx===x&&g.ly===y);
+  const cells: [number, number, number][]=[];for(let y=1;y<G.H;y+=2)for(let x=1;x<G.W;x+=2)if(dist[y*G.W+x]>=0)cells.push([x,y,dist[y*G.W+x]]);
   // minotaurs
-  const th=G.difficulty==='speedy'?[2,5]:[4,8];const nMino=1+(G.level>=th[0])+(G.level>=th[1]);
+  const th=G.difficulty==='speedy'?[2,5]:[4,8];const nMino=1+Number(G.level>=th[0])+Number(G.level>=th[1]);
   G.minos=[];
-  const lairs=G.rooms.map(rm=>[rm.px-1,rm.py-1]).filter(([x,y])=>dist[y*G.W+x]>=maxd*.4);
+  const lairs=G.rooms.map((rm): Cell=>[rm.px-1,rm.py-1]).filter(([x,y])=>dist[y*G.W+x]>=maxd*.4);
   const far=cells.filter(([,,d])=>d>=maxd*.5);
   for(let i=0;i<nMino;i++){
-    let pos=lairs.length?lairs.splice(rnd(lairs.length),1)[0]:null;
+    let pos: Cell | null=lairs.length?lairs.splice(rnd(lairs.length),1)[0]:null;
     if(!pos){const f=far.filter(([x,y])=>!G.minos.some(m=>Math.abs(m.x-x)+Math.abs(m.y-y)<8));const pick=(f.length?f:far)[rnd((f.length?f:far).length)];pos=[pick[0],pick[1]]}
     G.minos.push({x:pos[0],y:pos[1],px:pos[0],py:pos[1],next:performance.now()+1800+i*700,dir:{x:0,y:1},face:0,mode:'wander',say:'',sayUntil:0,lastSpot:0,hugT:0,puffT:0,enraged:false});
   }
   // threads: favour dead ends far from the start
   G.needed=Math.min(5+Math.floor((G.level-1)/2),10);G.got=0;G.doorOpen=false;G.threads=[];
-  const isDead=(x,y)=>[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>G.grid[y+dy][x+dx]===0).length===1;
+  const isDead=(x: number, y: number)=>[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>G.grid[y+dy][x+dx]===0).length===1;
   const pools=[cells.filter(([x,y,d])=>d>=6&&isDead(x,y)),cells.filter(([x,y,d])=>d>=5)];
   for(const pool of pools){
     let tries=0;
@@ -274,11 +276,11 @@ export function newLevel(){
   buildLevel();updateHUD();buildStamina();
 }
 // co-op gates: each one cuts off part of the maze and is opened by the lever of the same colour
-export function placeGates(sx,sy){
+export function placeGates(sx: number, sy: number){
   G.gates=[];G.gateMap=new Int16Array(G.W*G.H);
   const all=reach(sx,sy);let total=0;for(const v of all)if(v>=0)total++;
   const nGates=Math.min(1+Math.floor(G.level/2),4);
-  const conns=[];
+  const conns: [number, number, Axis][]=[];
   for(let y=1;y<G.H-1;y++)for(let x=1;x<G.W-1;x++){
     if(G.grid[y][x]!==0||(x+y)%2===0)continue;
     const ax=G.grid[y][x-1]===0&&G.grid[y][x+1]===0&&G.grid[y-1][x]===1&&G.grid[y+1][x]===1;
@@ -290,7 +292,7 @@ export function placeGates(sx,sy){
     if(Math.abs(gx-sx)+Math.abs(gy-sy)<5||G.gates.some(g=>Math.abs(g.x-gx)+Math.abs(g.y-gy)<8))continue;
     // each gate must be a true chokepoint on its own, so there's always a clear "inside" with a handle
     const solo=reach(sx,sy,new Set([gy*G.W+gx]));
-    const nb=axis==='x'?[[gx-1,gy],[gx+1,gy]]:[[gx,gy-1],[gx,gy+1]];
+    const nb: Cell[]=axis==='x'?[[gx-1,gy],[gx+1,gy]]:[[gx,gy-1],[gx,gy+1]];
     const r0=solo[nb[0][1]*G.W+nb[0][0]]>=0,r1=solo[nb[1][1]*G.W+nb[1][0]]>=0;
     if(r0===r1)continue;
     const inside=r0?nb[1]:nb[0];
@@ -301,7 +303,7 @@ export function placeGates(sx,sy){
     const cut=total-n-1;
     if(cut<Math.max(10,total*.06)||n<14)continue;
     if(G.gates.some(g=>d[g.ly*G.W+g.lx]<0))continue; // never trap an earlier lever behind this gate
-    const dg=reach(gx,gy,null),opts=[];
+    const dg=reach(gx,gy,null),opts: Cell[]=[];
     for(let y=1;y<G.H;y+=2)for(let x=1;x<G.W;x+=2){const k=y*G.W+x;if(d[k]>=4&&dg[k]>=6&&dg[k]<=22&&!G.gates.some(g=>g.lx===x&&g.ly===y))opts.push([x,y])}
     if(!opts.length)continue;
     const [lx,ly]=opts[rnd(opts.length)];
@@ -312,54 +314,11 @@ export function placeGates(sx,sy){
 // what the heroes can see right now (and everything they've ever seen)
 export function computeSight(){
   if(!G.sight)return;G.sight.fill(0);
-  const mark=(x,y)=>{if(x>=0&&y>=0&&x<G.W&&y<G.H){const k=y*G.W+x;G.sight[k]=1;if(!G.explored[k]){G.explored[k]=1;G.fogDirty=true}}};
+  const mark=(x: number, y: number)=>{if(x>=0&&y>=0&&x<G.W&&y<G.H){const k=y*G.W+x;G.sight[k]=1;if(!G.explored[k]){G.explored[k]=1;G.fogDirty=true}}};
   for(const p of G.players){
     for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)mark(p.x+dx,p.y+dy);
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
       for(let st=1;st<=8;st++){const x=p.x+dx*st,y=p.y+dy*st;if(x<0||y<0||x>=G.W||y>=G.H)break;mark(x,y);mark(x+dy,y+dx);mark(x-dy,y-dx);if(G.grid[y][x]===1)break}
     }
-  }
-}
-export function buildStamina(){
-  const w=$('stamWrap');w.innerHTML='';
-  G.players.forEach((p,i)=>{const wrap=document.createElement('span');wrap.style.display='flex';wrap.style.alignItems='center';const sp=document.createElement('span');sp.className='pill stam';sp.title='Sprint';const b=document.createElement('b');b.id='stb'+i;sp.appendChild(b);wrap.appendChild(sp);const iv=document.createElement('span');iv.className='inv';iv.id='inv'+i;iv.textContent='🔥';iv.title='Fireball ready';wrap.appendChild(iv);w.appendChild(wrap)});
-}
-// iron portcullis: rattling chains + grinding as it lowers, a heavy clank when it slams shut
-export function gateSound(open,g){
-  if(!G.ac||!G.master)return;
-  let d=0,ax=g?g.x:0;
-  if(g&&G.players.length){d=1e9;for(const p of G.players){const dd=Math.hypot(p.x-g.x,p.y-g.y);if(dd<d){d=dd;ax=p.x}}}
-  const v=Math.max(.45,1-d/26),pan=g?Math.max(-.7,Math.min(.7,(g.x-ax)/8)):0,t0=G.ac.currentTime;
-  const clink=(t,vol)=>{
-    const o=G.ac.createOscillator(),gg=G.ac.createGain();o.type='triangle';o.frequency.value=1700+Math.random()*1800;
-    gg.gain.setValueAtTime(.0001,t);gg.gain.exponentialRampToValueAtTime(vol,t+.003);gg.gain.exponentialRampToValueAtTime(.0001,t+.05);
-    o.connect(gg);route(gg,1,.35,pan);o.start(t);o.stop(t+.06);
-    noiseBurst(t,.025,'highpass',3500,vol*.8,1,.2,pan);
-  };
-  const clank=(t,vol)=>{
-    const o=G.ac.createOscillator(),gg=G.ac.createGain();o.type='sine';o.frequency.setValueAtTime(95,t);o.frequency.exponentialRampToValueAtTime(38,t+.25);
-    gg.gain.setValueAtTime(.0001,t);gg.gain.exponentialRampToValueAtTime(vol,t+.008);gg.gain.exponentialRampToValueAtTime(.0001,t+.35);
-    o.connect(gg);route(gg,1,.6,pan);o.start(t);o.stop(t+.4);
-    noiseBurst(t,.12,'lowpass',600,vol*.6,1,.5,pan);
-    const m=G.ac.createOscillator(),mg=G.ac.createGain();m.type='square';m.frequency.value=410;
-    mg.gain.setValueAtTime(.0001,t);mg.gain.exponentialRampToValueAtTime(vol*.12,t+.004);mg.gain.exponentialRampToValueAtTime(.0001,t+.3);
-    const bp=G.ac.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1200;bp.Q.value=8;
-    m.connect(bp).connect(mg);route(mg,1,.6,pan);m.start(t);m.stop(t+.32);
-  };
-  if(open){
-    clank(t0,.16*v);
-    for(let k=0;k<16;k++)clink(t0+.05+k*.055+Math.random()*.02,.05*v*(1-k/22));
-    // grinding stone and iron
-    const n=G.ac.createBufferSource();n.buffer=G.noiseB;const f=G.ac.createBiquadFilter();f.type='bandpass';f.frequency.value=170;f.Q.value=2;
-    const gg=G.ac.createGain();gg.gain.setValueAtTime(.0001,t0);gg.gain.exponentialRampToValueAtTime(.22*v,t0+.15);gg.gain.setValueAtTime(.22*v,t0+.75);gg.gain.exponentialRampToValueAtTime(.0001,t0+1.05);
-    n.connect(f).connect(gg);route(gg,1,.4,pan);n.start(t0,Math.random());n.stop(t0+1.1);
-    const sw=G.ac.createOscillator(),sg=G.ac.createGain();sw.type='sawtooth';sw.frequency.setValueAtTime(46,t0);sw.frequency.linearRampToValueAtTime(40,t0+1);
-    const lp=G.ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=160;
-    sg.gain.setValueAtTime(.0001,t0);sg.gain.exponentialRampToValueAtTime(.08*v,t0+.15);sg.gain.exponentialRampToValueAtTime(.0001,t0+1.05);
-    sw.connect(lp).connect(sg);route(sg,1,.3,pan);sw.start(t0);sw.stop(t0+1.1);
-    clank(t0+1.0,.22*v);
-  }else{
-    for(let k=0;k<6;k++)clink(t0+k*.035,.045*v);
-    clank(t0+.24,.32*v);
   }
 }

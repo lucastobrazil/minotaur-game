@@ -1,4 +1,3 @@
-// @ts-nocheck
 import './style.css';
 import { G } from './state';
 import * as core from './core';
@@ -21,8 +20,8 @@ const modules = { core, audio, ambience, textures, scene, maze, level, input, lo
 // Test/debug bridge: on file:// or with ?debug, expose game state and functions as globals
 // so the headless browser tests can drive the game.
 if (location.protocol === 'file:' || new URLSearchParams(location.search).has('debug')) {
-  for (const k of Object.keys(G)) if (!(k in window)) Object.defineProperty(window, k, { get: () => G[k], set: (v) => { G[k] = v; }, configurable: true });
-  for (const m of Object.values(modules)) for (const [k, v] of Object.entries(m)) if (k !== 'init' && !(k in window)) Object.defineProperty(window, k, { get: () => m[k], configurable: true });
+  for (const k of Object.keys(G)) if (!(k in window)) Object.defineProperty(window, k, { get: () => (G as any)[k], set: (v) => { (G as any)[k] = v; }, configurable: true });
+  for (const m of Object.values(modules)) for (const [k, v] of Object.entries(m)) if (k !== 'init' && !(k in window)) Object.defineProperty(window, k, { get: () => (m as any)[k], configurable: true });
   (window as any).__G = G;
 }
 

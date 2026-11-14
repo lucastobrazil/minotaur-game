@@ -18,25 +18,26 @@ The build inlines everything (game code, Three.js, CSS) into a single `dist/inde
 
 ## Code layout
 
-The code was split out of the original single-file prototype (kept in `legacy/index.html` for reference). Each module still starts with `// @ts-nocheck`; types are being added module by module.
+The code was split out of the original single-file prototype (kept in `legacy/index.html` for reference). It type-checks under TypeScript `strict` mode; shared types live in `src/types.ts`.
 
 | File | What's in it |
 |---|---|
 | `src/main.ts` | Entry point: imports the modules and runs their start-up code in order |
-| `src/state.ts` | Shared mutable game state (`G`): level, players, Minotaurs, gates, camera mode, controller assignment… |
+| `src/types.ts` | Shared types: `Player`, `Minotaur`, `Gate`, `Chest`, `GameState`… |
+| `src/state.ts` | Shared mutable game state (`G`, typed as `GameState`): level, players, Minotaurs, gates, camera mode, controller assignment… |
 | `src/core.ts` | DOM handles, constants (player names/colours, key descriptions) |
-| `src/audio.ts` | Web Audio setup, sound effects (growl, roar, gates, hungry sniff, footsteps) |
-| `src/ambience.ts` | Wind, rumble, drips, torch crackle, heartbeat |
+| `src/audio.ts` | Web Audio setup, sound effects (growl, roar, hungry sniff, gate rattle) |
+| `src/ambience.ts` | Wind, rumble, drips, torch crackle, footsteps, heartbeat |
 | `src/textures.ts` | Procedural canvas textures (stone, glow) |
 | `src/scene.ts` | Three.js renderer, lights, hero and Minotaur models |
 | `src/maze.ts` | Maze generation (backtracker / Prim), rooms, pathfinding |
 | `src/level.ts` | Level building: walls, torches, gates and levers, fog of war, spawning |
 | `src/input.ts` | Keyboard, touch and gamepad input, menu navigation, Joy-Con handling |
-| `src/logic.ts` | Movement, gates, Minotaur AI, catching |
+| `src/logic.ts` | Movement, gates, Minotaur AI, catching, the per-frame update |
 | `src/firstPerson.ts` | First-person movement (turn / step) |
 | `src/items.ts` | Trader chests, fireballs, stun, item sounds |
 | `src/render.ts` | Per-frame sync of 3D objects, camera, minimap, split-screen rendering |
-| `src/hud.ts` | HUD, menus, game flow (start, win, pause, camera modes) |
+| `src/hud.ts` | HUD (stamina, fireball slots), toasts, player count, difficulty, camera modes |
 | `src/controllers.ts` | Choose-controllers screen, start game, main loop |
 
 On `file://` (or with `?debug` in the URL) `main.ts` exposes the game state and functions as globals so the tests can drive the game.
@@ -60,6 +61,6 @@ On `file://` (or with `?debug` in the URL) `main.ts` exposes the game state and 
 ## Roadmap
 
 1. ~~Split into modules with a build step~~
-2. Add types module by module (remove `@ts-nocheck`)
+2. ~~Add types (strict mode)~~
 3. Upgrade Three.js from r128 (needs colour-management and light-intensity migration)
 4. Settings menu, saving, input remapping, performance tiers

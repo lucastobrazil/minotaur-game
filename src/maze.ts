@@ -1,33 +1,32 @@
-// @ts-nocheck
-// Ported from the single-file prototype. Types are added incrementally.
-import * as THREE from 'three';
+import type { Gate } from './types';
 import { G } from './state';
 import { rnd } from './core';
 
 /* ---------- maze generation ---------- */
-export function genMaze(c,r){
+export type Cell = [number, number];
+export function genMaze(c: number, r: number){
   G.W=2*c+1;G.H=2*r+1;
-  const g=[];for(let y=0;y<G.H;y++)g.push(new Array(G.W).fill(1));
-  const D=[[1,0],[-1,0],[0,1],[0,-1]];
-  const inC=(x,y)=>x>=0&&y>=0&&x<c&&y<r;
+  const g: number[][]=[];for(let y=0;y<G.H;y++)g.push(new Array(G.W).fill(1));
+  const D: Cell[]=[[1,0],[-1,0],[0,1],[0,-1]];
+  const inC=(x: number, y: number)=>x>=0&&y>=0&&x<c&&y<r;
   const seen=new Uint8Array(c*r);
-  const carve=(ax,ay,bx,by)=>{g[2*ay+1][2*ax+1]=0;g[ay+by+1][ax+bx+1]=0;g[2*by+1][2*bx+1]=0};
+  const carve=(ax: number, ay: number, bx: number, by: number)=>{g[2*ay+1][2*ax+1]=0;g[ay+by+1][ax+bx+1]=0;g[2*by+1][2*bx+1]=0};
   const algo=Math.random()<.5?'backtrack':'prim';
   if(algo==='backtrack'){
-    const sx=rnd(c),sy=rnd(r),stack=[[sx,sy]];seen[sy*c+sx]=1;g[2*sy+1][2*sx+1]=0;
+    const sx=rnd(c),sy=rnd(r),stack: Cell[]=[[sx,sy]];seen[sy*c+sx]=1;g[2*sy+1][2*sx+1]=0;
     while(stack.length){
       const [x,y]=stack[stack.length-1];
-      const nb=D.map(([dx,dy])=>[x+dx,y+dy]).filter(([nx,ny])=>inC(nx,ny)&&!seen[ny*c+nx]);
+      const nb=D.map(([dx,dy]): Cell=>[x+dx,y+dy]).filter(([nx,ny])=>inC(nx,ny)&&!seen[ny*c+nx]);
       if(!nb.length){stack.pop();continue}
       const [nx,ny]=nb[rnd(nb.length)];carve(x,y,nx,ny);seen[ny*c+nx]=1;stack.push([nx,ny]);
     }
   }else{
-    const sx=rnd(c),sy=rnd(r),front=[];seen[sy*c+sx]=1;g[2*sy+1][2*sx+1]=0;
-    const addF=(x,y)=>D.forEach(([dx,dy])=>{const nx=x+dx,ny=y+dy;if(inC(nx,ny)&&!seen[ny*c+nx]){seen[ny*c+nx]=2;front.push([nx,ny])}});
+    const sx=rnd(c),sy=rnd(r),front: Cell[]=[];seen[sy*c+sx]=1;g[2*sy+1][2*sx+1]=0;
+    const addF=(x: number, y: number)=>D.forEach(([dx,dy])=>{const nx=x+dx,ny=y+dy;if(inC(nx,ny)&&!seen[ny*c+nx]){seen[ny*c+nx]=2;front.push([nx,ny])}});
     addF(sx,sy);
     while(front.length){
       const [x,y]=front.splice(rnd(front.length),1)[0];
-      const vis=D.map(([dx,dy])=>[x+dx,y+dy]).filter(([nx,ny])=>inC(nx,ny)&&seen[ny*c+nx]===1);
+      const vis=D.map(([dx,dy]): Cell=>[x+dx,y+dy]).filter(([nx,ny])=>inC(nx,ny)&&seen[ny*c+nx]===1);
       const [vx,vy]=vis[rnd(vis.length)];carve(vx,vy,x,y);seen[y*c+x]=1;addF(x,y);
     }
   }
@@ -49,17 +48,17 @@ export function genMaze(c,r){
   }
   return{g,algo};
 }
-export const gateAt = (x,y)=>G.gateMap&&G.gateMap[y*G.W+x]?G.gates[G.gateMap[y*G.W+x]-1]:null;
-export const walk = (x,y)=>{if(!(x>=0&&y>=0&&x<G.W&&y<G.H&&G.grid[y][x]===0)||(x===G.exit.x&&y===G.exit.y))return false;const g=gateAt(x,y);return!g||g.open};
+export const gateAt = (x: number, y: number): Gate | null=>G.gateMap&&G.gateMap[y*G.W+x]?G.gates[G.gateMap[y*G.W+x]-1]:null;
+export const walk = (x: number, y: number): boolean=>{if(!(x>=0&&y>=0&&x<G.W&&y<G.H&&G.grid[y][x]===0)||(x===G.exit.x&&y===G.exit.y))return false;const g=gateAt(x,y);return!g||g.open};
 // reachability ignoring gate state, with an optional set of blocked tiles
-export function reach(sx,sy,blocked){
+export function reach(sx: number, sy: number, blocked?: Set<number> | null): Int32Array{
   const dist=new Int32Array(G.W*G.H).fill(-1),q=[sy*G.W+sx];dist[sy*G.W+sx]=0;
   for(let i=0;i<q.length;i++){const k=q[i],x=k%G.W,y=(k/G.W)|0;
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=G.W||ny>=G.H||G.grid[ny][nx]!==0||(nx===G.exit.x&&ny===G.exit.y))continue;const nk=ny*G.W+nx;if(blocked&&blocked.has(nk))continue;if(dist[nk]<0){dist[nk]=dist[k]+1;q.push(nk)}}}
   return dist;
 }
-export const canStep = (x,y)=>walk(x,y)||(G.doorOpen&&x===G.exit.x&&y===G.exit.y);
-export function bfs(sx,sy){
+export const canStep = (x: number, y: number): boolean=>walk(x,y)||(G.doorOpen&&x===G.exit.x&&y===G.exit.y);
+export function bfs(sx: number, sy: number){
   const dist=new Int32Array(G.W*G.H).fill(-1),prev=new Int32Array(G.W*G.H).fill(-1),q=[sy*G.W+sx];dist[sy*G.W+sx]=0;
   for(let i=0;i<q.length;i++){
     const k=q[i],x=k%G.W,y=(k/G.W)|0;

@@ -16,6 +16,7 @@ Lucas builds this game with Claude for his kids. They play it from a Claude arti
 ## Notes
 
 - Three.js is pinned at r128 on purpose; upgrading changes lighting and colour (see README roadmap).
-- Shared mutable state lives in `G` (`src/state.ts`). Module-level `export let` values are only assigned inside their own module's `init()`.
+- Shared mutable state lives in `G` (`src/state.ts`, typed by `GameState` in `src/types.ts`). Module-level `export let` values are only assigned inside their own module's `init()`.
+- Keep `npm run typecheck` clean (strict mode). Don't add `any` or `@ts-nocheck` to get around errors; extend the types instead.
 - Controller handling is the most fragile area (Chrome joins two Joy-Cons into a "Joy-Con L+R" copy; ghost duplicates; sideways orientation untested on real hardware). Keep the controller tests (t11, t15, t16, t19, t23) passing.
 - `legacy/index.html` is the original single-file prototype, kept for reference only.
