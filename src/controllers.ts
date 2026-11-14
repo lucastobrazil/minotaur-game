@@ -82,7 +82,8 @@ export function renderPadList(force = false){
 export function startGame(){
   G.carry=[null,null,null,null];
   G.gameActive=true;
-  initAudio();hideAll();G.level=1;G.hugs=0;
+  initAudio();hideAll();G.level=location.hash==='#boss'?4:1;G.hugs=0; // #boss on the URL jumps straight to the first boss (for testing)
+  
   resize();newLevel();G.state='play';levelIntro();padTip();
 }
 export function nextLevel(){hideAll();G.level++;newLevel();G.state='play';levelIntro()}
