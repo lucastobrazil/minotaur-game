@@ -11,6 +11,10 @@ with sync_playwright() as p:
     pg.goto(GAME); pg.wait_for_timeout(800)
     pg.screenshot(path='/tmp/d0.png')
     pg.click('#startBtn'); pg.wait_for_timeout(400)
+    # some random mazes have no gate; reroll until one does (the gate checks below need one)
+    for _ in range(20):
+        if pg.evaluate('gates.length'): break
+        pg.evaluate('newLevel()'); pg.wait_for_timeout(150)
     print(pg.evaluate("[W,H,gates.length,minos.length,threads.length,gates.map(g=>[g.x,g.y,g.lx,g.ly])]"))
     pg.keyboard.down('Enter')
     for k in ['ArrowRight','ArrowDown','ArrowLeft','ArrowDown','ArrowRight']:
