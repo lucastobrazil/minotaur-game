@@ -1,7 +1,8 @@
-"""Run every headless browser test against dist/index.html (run `npm run build` first).
+"""Run every headless browser test (tests/t*.py) for one game against its dist/index.html.
+Usage (from a game folder): python3 ../../scripts/run_tests.py tests   (run `npm run build` first)
 Each test prints its checks; a test fails if it exits non-zero or reports page errors."""
 import glob, os, subprocess, sys
-here = os.path.dirname(os.path.abspath(__file__))
+here = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else 'tests')
 failed = []
 for path in sorted(glob.glob(os.path.join(here, 't*.py'))):
     name = os.path.basename(path)

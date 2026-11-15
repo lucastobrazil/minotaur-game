@@ -1,0 +1,9 @@
+{
+  "id": "game-template",
+  "title": "Star Catch",
+  "emoji": "⭐",
+  "description": "Starter game: everyone runs around collecting stars.",
+  "players": "1-4",
+  "status": "template",
+  "artifact": null
+}

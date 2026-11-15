@@ -1,20 +1,21 @@
 {
-  "name": "minotaur-game",
+  "name": "kids-games",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
+  "description": "Browser games Lucas builds with Claude for his kids. One folder per game in games/.",
+  "workspaces": [
+    "packages/*",
+    "games/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
-    "test": "python3 tests/run_all.py"
-  },
-  "dependencies": {
-    "three": "^0.128.0"
+    "new-game": "node scripts/new-game.mjs",
+    "games": "node scripts/list-games.mjs",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {
-    "@types/three": "^0.128.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vite-plugin-singlefile": "^2.3.4"

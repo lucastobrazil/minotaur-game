@@ -1,0 +1,16 @@
+{
+  "id": "minotaur",
+  "title": "The Minotaur",
+  "emoji": "🐂",
+  "description": "Escape the labyrinth together before the Minotaur catches you. Boss fights every 4th level.",
+  "players": "1-4",
+  "status": "live",
+  "artifact": {
+    "slug": "d306575e-eb0a-4331-9e37-e2cc608d1c77",
+    "url": "https://claude.ai/artifact/T4NuzpimAwdVK1HWCqmvEJ"
+  },
+  "preview": {
+    "slug": "7f938642-91c7-4a58-98e4-7bf7db471223",
+    "url": "https://claude.ai/artifact/GkiKP3iMhW8SoghySefGmp"
+  }
+}
