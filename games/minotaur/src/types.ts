@@ -48,6 +48,12 @@ export interface Player {
 
 export type MinoMode = 'wander' | 'chase' | 'stunned';
 
+/** Swinging joints of a hero model (rotate about x to walk). */
+export interface HeroParts {
+  legs: THREE.Group[];
+  arms: THREE.Group[];
+}
+
 export interface MinoParts {
   legs: THREE.Group[];
   arms: THREE.Group[];

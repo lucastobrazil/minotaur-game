@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { G } from './state';
-import type { Minotaur, Player } from './types';
+import type { HeroParts, Minotaur, Player } from './types';
 import { syncBoss } from './boss';
 import { $, TRAIL, stage } from './core';
 import { ITEM_ICON } from './items';
@@ -28,6 +28,11 @@ export function sync(now: number, dt: number){
     p.face=angLerp(p.face,Math.atan2(p.last.x,p.last.y),Math.min(1,dt*16));
     p.mesh.position.set(p.px,moving?Math.abs(Math.sin(now/55))*.08:0,p.py);
     p.mesh.rotation.y=p.face;
+    // swing arms and legs in step with the bob, easing back to standing when stopped
+    const u=p.mesh.userData as Partial<HeroParts>;
+    if(u.legs&&u.arms){const sw=moving?Math.sin(now/110)*.6:0,e=Math.min(1,dt*12),L=u.legs,A=u.arms;
+      L[0].rotation.x+=(sw-L[0].rotation.x)*e;L[1].rotation.x+=(-sw-L[1].rotation.x)*e;
+      A[0].rotation.x+=(-sw*.8-A[0].rotation.x)*e;A[1].rotation.x+=(sw*.8-A[1].rotation.x)*e}
     p.mesh.visible=!(p.inv>now&&Math.floor(now/110)%2);
   });
   const r=stage.getBoundingClientRect();

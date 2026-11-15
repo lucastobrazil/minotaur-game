@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { G } from './state';
-import type { MinoParts } from './types';
+import type { HeroParts, MinoParts } from './types';
+import { HERO_SPECS, makeHero, makeMinotaurHD } from './characters';
 import { COLORS, cv } from './core';
 import { GLOW, canvasTex } from './textures';
 
@@ -22,7 +23,20 @@ export const glowSprite = (color: Colorish, size: number, op=1)=>{const s=new TH
 export const glowPool = (color: Colorish, size: number, op: number)=>{const p=new THREE.Mesh(new THREE.PlaneGeometry(size,size),new THREE.MeshBasicMaterial({map:GLOW,color,transparent:true,opacity:op,depthWrite:false,blending:THREE.AdditiveBlending}));p.rotation.x=-Math.PI/2;return p};
 export let camPos: THREE.Vector3;
 export function shadowAll(g: THREE.Object3D){g.traverse(o=>{if(o instanceof THREE.Mesh&&!((o.material as THREE.Material)?.blending===THREE.AdditiveBlending)){o.castShadow=true;o.receiveShadow=true}})}
-export function makePlayer(i: number): THREE.Group{
+/** The heroes: the "refined" models from characters.ts, sized like the originals (a touch wider so they read from above). */
+export function makePlayer(i: number): THREE.Group & { userData: HeroParts }{
+  const g=new THREE.Group() as THREE.Group & { userData: HeroParts };
+  const hero=makeHero(HERO_SPECS[i],2,G.robeUnlocked&&G.outfit==='robe');
+  hero.scale.set(HERO_W,HERO_H,HERO_W);g.add(hero);g.userData=hero.userData;
+  const light=new THREE.PointLight('#ffb066',1.5*[1,1,.8,.65,.55][Math.max(1,G.numPlayers)],7,1.6);light.position.set(0,1.3,.2);g.add(light);
+  return g;
+}
+export const HERO_H=.82,HERO_W=.92;
+/** The Minotaur: the "refined" model, with the same joints (legs, arms, head) the game animates. */
+export function makeMino(): THREE.Group & { userData: MinoParts }{ return makeMinotaurHD(2) }
+
+/** The original simple hero (kept for the character lab comparison). */
+export function makePlayerClassic(i: number): THREE.Group{
   const g=new THREE.Group(),skin=M('#e8bf98'),bronze=M('#a87a3a',{metalness:.6,roughness:.4});
   const body=cyl(.14,.24,.42,COLORS[i],18);body.position.y=.21;g.add(body);
   const belt=cyl(.195,.205,.05,'#4a2f1a',18);belt.position.y=.24;g.add(belt);
@@ -55,7 +69,8 @@ export function makePlayer(i: number): THREE.Group{
   const light=new THREE.PointLight('#ffb066',1.5*[1,1,.8,.65,.55][Math.max(1,G.numPlayers)],7,1.6);light.position.set(0,1.3,.2);g.add(light);
   return g;
 }
-export function makeMino(): THREE.Group & { userData: MinoParts }{
+/** The original simple Minotaur (kept for the character lab comparison). */
+export function makeMinoClassic(): THREE.Group & { userData: MinoParts }{
   const g=new THREE.Group(),fur=M('#3a2a20',{roughness:1}),furD=M('#241913',{roughness:1}),hide=M('#5a4033'),bone=M('#d6c7a8',{roughness:.6}),hoof=M('#120d0a'),bronze=M('#9a6a2a',{metalness:.6,roughness:.4});
   const eyeMat=new THREE.MeshBasicMaterial({color:'#ff4a1a'});
   const legs: THREE.Group[]=[],arms: THREE.Group[]=[];
