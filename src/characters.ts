@@ -4,6 +4,7 @@
 //   3 = "detailed": tier 2 plus painted textures, bump maps, fingers, jewellery and props
 // Models face +z, stand on y = 0. Heroes are ~1.0 tall, the Minotaur ~2.0.
 import * as THREE from 'three';
+import type { MinoParts, HeroParts } from './types';
 
 export type Tier = 1 | 2 | 3;
 export type HeroStyle = 'helmet' | 'hair';
@@ -66,6 +67,45 @@ function taperTube(points: THREE.Vector3[], r0: number, r1: number, tubular: num
   return g;
 }
 const sphereGeo = (r: number, seg: number) => new THREE.SphereGeometry(r, seg, Math.max(6, seg * 3 >> 2));
+
+/** A joint: rotating `pivot` swings everything added to `inner`, which keeps the model's own coordinates. */
+function joint(parent: THREE.Object3D, at: THREE.Vector3): { pivot: THREE.Group; inner: THREE.Group } {
+  const pivot = new THREE.Group(); pivot.position.copy(at); parent.add(pivot);
+  const inner = new THREE.Group(); inner.position.copy(at).negate(); pivot.add(inner);
+  return { pivot, inner };
+}
+
+function matKey(m: THREE.Material): string {
+  if (m instanceof THREE.MeshStandardMaterial) return ['S', m.color.getHex(), m.map?.uuid, m.bumpMap?.uuid, m.metalness, m.roughness, m.emissive.getHex(), m.transparent, m.opacity, m.side].join('|');
+  return m.uuid;
+}
+/** Merge each group's direct mesh children into one mesh per material, so a character costs a
+ *  handful of draw calls instead of ~100. Runs recursively through child groups (joints, head). */
+export function bake(group: THREE.Object3D): void {
+  for (const c of [...group.children]) if (!(c instanceof THREE.Mesh) && c.children.length) bake(c);
+  const meshes = group.children.filter((c): c is THREE.Mesh => c instanceof THREE.Mesh && !c.children.length);
+  if (meshes.length < 2) return;
+  const buckets = new Map<string, { mat: THREE.Material; geos: THREE.BufferGeometry[] }>();
+  for (const m of meshes) {
+    m.updateMatrix();
+    const geo = (m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone());
+    if (!geo.attributes.uv) geo.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(geo.attributes.position.count * 2), 2));
+    geo.applyMatrix4(m.matrix);
+    const mat = m.material as THREE.Material, k = matKey(mat);
+    const b = buckets.get(k) ?? { mat, geos: [] }; b.geos.push(geo); buckets.set(k, b);
+    group.remove(m); m.geometry.dispose();
+  }
+  for (const { mat, geos } of buckets.values()) {
+    const merged = new THREE.BufferGeometry();
+    for (const name of ['position', 'normal', 'uv']) {
+      const size = name === 'uv' ? 2 : 3, total = geos.reduce((n, g) => n + g.attributes[name].count, 0), arr = new Float32Array(total * size);
+      let off = 0; for (const g of geos) { arr.set(g.attributes[name].array as Float32Array, off); off += g.attributes[name].count * size; }
+      merged.setAttribute(name, new THREE.Float32BufferAttribute(arr, size));
+    }
+    geos.forEach((g) => g.dispose());
+    const out = new THREE.Mesh(merged, mat); out.castShadow = true; out.receiveShadow = true; group.add(out);
+  }
+}
 
 // ---------- painted textures (tier 3) ----------
 function tex(w: number, h: number, draw: (x: CanvasRenderingContext2D) => void, repeatU = 1, repeatV = 1): THREE.CanvasTexture {
@@ -132,8 +172,10 @@ function leatherTex(base: string): THREE.CanvasTexture {
 }
 
 // ---------- heroes ----------
-export function makeHero(spec: HeroSpec, tier: 2 | 3): THREE.Group {
+export function makeHero(base: HeroSpec, tier: 2 | 3, robe = false): THREE.Group & { userData: HeroParts } {
+  const spec: HeroSpec = robe ? { ...base, tunic: '#8e1f1f', accent: '#d9a52e' } : base;
   const g = new THREE.Group(), hi = tier === 3, S = hi ? 28 : 18;
+  const legs: THREE.Group[] = [], arms: THREE.Group[] = [];
   const skin = std('#e8bf98', { roughness: .65 });
   const tunic = hi ? std('#ffffff', { map: clothTex(spec.tunic, spec.accent), roughness: .9 }) : std(spec.tunic, { roughness: .9 });
   const tunicPlain = std(spec.tunic, { roughness: .9 });
@@ -146,10 +188,11 @@ export function makeHero(spec: HeroSpec, tier: 2 | 3): THREE.Group {
   // legs and sandals
   for (const s of [-1, 1]) {
     const hip = V(s * .06, .4, 0), knee = V(s * .066, .21, .012), ankle = V(s * .066, .055, 0);
-    limb(hip, knee, .042, skin, g, S, .036); limb(knee, ankle, .034, skin, g, S, .028);
-    mesh(new THREE.BoxGeometry(.07, .022, .14), leather, g, V(s * .066, .011, .022));
-    for (let k = 0; k < (hi ? 3 : 1); k++) mesh(new THREE.TorusGeometry(.031 - k * .002, .005, 6, S), leather, g, V(s * .066, .06 + k * .045, 0)).rotation.x = Math.PI / 2;
-    if (helmet) { const gr = mesh(lathe([[.03, .08], [.04, .12], [.041, .18], [.034, .21]], S), bronze, g); gr.position.set(s * .066, 0, .006); }
+    const { pivot, inner: L } = joint(g, hip); legs.push(pivot);
+    limb(hip, knee, .042, skin, L, S, .036); limb(knee, ankle, .034, skin, L, S, .028);
+    mesh(new THREE.BoxGeometry(.07, .022, .14), leather, L, V(s * .066, .011, .022));
+    for (let k = 0; k < (hi ? 3 : 1); k++) mesh(new THREE.TorusGeometry(.031 - k * .002, .005, 6, S), leather, L, V(s * .066, .06 + k * .045, 0)).rotation.x = Math.PI / 2;
+    if (helmet) { const gr = mesh(lathe([[.03, .08], [.04, .12], [.041, .18], [.034, .21]], S), bronze, L); gr.position.set(s * .066, 0, .006); }
   }
   // skirt / dress
   const long = !helmet;
@@ -174,15 +217,16 @@ export function makeHero(spec: HeroSpec, tier: 2 | 3): THREE.Group {
   // arms and hands
   for (const s of [-1, 1]) {
     const sh = V(s * .165, .655, 0), el = V(s * .215, .53, .02), wr = V(s * .225, .41, .055);
-    mesh(sphereGeo(.048, S), helmet ? bronze : skin, g, sh);
-    limb(sh, el, .034, skin, g, S, .03); limb(el, wr, .03, skin, g, S, .026);
-    if (helmet) mesh(lathe([[.03, -.03], [.034, 0], [.033, .04], [.029, .05]], S), leather, g, V(s * .222, .43, .045)).quaternion.setFromUnitVectors(V(0, 1, 0), el.clone().sub(wr).normalize());
-    else if (hi) mesh(new THREE.TorusGeometry(.029, .006, 6, S), accent, g, V(s * .224, .435, .048)).rotation.x = Math.PI / 2;
+    const { pivot, inner: A } = joint(g, sh); arms.push(pivot);
+    mesh(sphereGeo(.048, S), helmet ? bronze : skin, A, sh);
+    limb(sh, el, .034, skin, A, S, .03); limb(el, wr, .03, skin, A, S, .026);
+    if (helmet) mesh(lathe([[.03, -.03], [.034, 0], [.033, .04], [.029, .05]], S), leather, A, V(s * .222, .43, .045)).quaternion.setFromUnitVectors(V(0, 1, 0), el.clone().sub(wr).normalize());
+    else if (hi) mesh(new THREE.TorusGeometry(.029, .006, 6, S), accent, A, V(s * .224, .435, .048)).rotation.x = Math.PI / 2;
     const hand = V(s * .228, .385, .065);
-    mesh(sphereGeo(.03, S), skin, g, hand, V(.85, 1.1, .7));
+    mesh(sphereGeo(.03, S), skin, A, hand, V(.85, 1.1, .7));
     if (hi) { // fingers and thumb
-      for (let f = 0; f < 4; f++) limb(V(s * .228 + (f - 1.5) * .011 * s, .365, .07), V(s * .228 + (f - 1.5) * .012 * s, .34, .078), .0065, skin, g, 8);
-      limb(V(s * .21, .385, .08), V(s * .205, .365, .095), .007, skin, g, 8);
+      for (let f = 0; f < 4; f++) limb(V(s * .228 + (f - 1.5) * .011 * s, .365, .07), V(s * .228 + (f - 1.5) * .012 * s, .34, .078), .0065, skin, A, 8);
+      limb(V(s * .21, .385, .08), V(s * .205, .365, .095), .007, skin, A, 8);
     }
   }
   // neck and head
@@ -244,11 +288,20 @@ export function makeHero(spec: HeroSpec, tier: 2 | 3): THREE.Group {
     }
     // ball of golden thread in her hand, with a strand trailing behind
     const gold = std('#e8b030', { metalness: .4, roughness: .45, emissive: '#3a2400' });
-    mesh(sphereGeo(.05, S), gold, g, V(.235, .36, .1));
-    for (let k = 0; k < (hi ? 4 : 2); k++) mesh(new THREE.TorusGeometry(.05, .004, 6, 20), std('#b07a10'), g, V(.235, .36, .1)).rotation.set(k * .9, k * .6, 0);
-    mesh(taperTube([V(.235, .33, .1), V(.2, .2, .0), V(.12, .05, -.12), V(-.05, .01, -.3)], .004, .004, 30, 5), gold, g);
+    const R = arms[1].children[0];
+    mesh(sphereGeo(.05, S), gold, R, V(.235, .36, .1));
+    for (let k = 0; k < (hi ? 4 : 2); k++) mesh(new THREE.TorusGeometry(.05, .004, 6, 20), std('#b07a10'), R, V(.235, .36, .1)).rotation.set(k * .9, k * .6, 0);
+    mesh(taperTube([V(.235, .33, .1), V(.22, .22, .05), V(.18, .14, -.02)], .004, .003, 12, 5), gold, R);
   }
-  return g;
+  if (robe) { // Minotaur-Slayer robe extras: gold sash, and bronze horns (helmets) or a gold laurel (hair)
+    const gold = std('#d9a52e', { metalness: .7, roughness: .35 });
+    const sash = mesh(new THREE.BoxGeometry(.04, .36, .012), gold, g, V(0, .57, .15)); sash.rotation.z = .55;
+    if (helmet) for (const s of [-1, 1]) { const h = mesh(new THREE.ConeGeometry(.022, .12, 10), std('#e8dcc0', { roughness: .5 }), head, V(s * .14, .07, 0)); h.rotation.z = -s * .7; }
+    else for (let k = 0; k < 12; k++) { const a = (k / 12) * Math.PI * 2; const leaf = mesh(sphereGeo(.018, 8), gold, head, V(Math.sin(a) * .14, .075, Math.cos(a) * .14), V(1.4, .5, .8)); leaf.rotation.y = a; }
+  }
+  bake(g);
+  g.userData = { legs, arms } as HeroParts;
+  return g as THREE.Group & { userData: HeroParts };
 }
 function shieldTex(): THREE.CanvasTexture {
   return tex(256, 256, (x) => {
@@ -263,8 +316,11 @@ function shieldTex(): THREE.CanvasTexture {
 }
 
 // ---------- the Minotaur ----------
-export function makeMinotaurHD(tier: 2 | 3): THREE.Group {
-  const g = new THREE.Group(), hi = tier === 3, S = hi ? 28 : 18;
+export function makeMinotaurHD(tier: 2 | 3): THREE.Group & { userData: MinoParts } {
+  const root = new THREE.Group(), g = new THREE.Group(), hi = tier === 3, S = hi ? 28 : 18;
+  g.scale.setScalar(.87); root.add(g); // same height as the old model so gameplay scales still fit
+  const legs: THREE.Group[] = [], arms: THREE.Group[] = [];
+  const eyeMat = new THREE.MeshBasicMaterial({ color: '#ff4a1a' });
   const fur = hi ? std('#ffffff', { map: furTex('#3a2a20', 'rgba(10,6,4,.8)'), bumpMap: furTex('#808080', '#000'), bumpScale: .01, roughness: 1 }) : std('#3a2a20', { roughness: 1 });
   const furD = hi ? std('#ffffff', { map: furTex('#241913', 'rgba(0,0,0,.8)'), roughness: 1 }) : std('#241913', { roughness: 1 });
   const hide = std('#5a4033', { roughness: .85 });
@@ -276,9 +332,10 @@ export function makeMinotaurHD(tier: 2 | 3): THREE.Group {
   // digitigrade legs with hooves
   for (const s of [-1, 1]) {
     const hip = V(s * .16, .86, 0), knee = V(s * .18, .55, .13), hock = V(s * .18, .25, -.07), hoof = V(s * .18, .06, .02);
-    limb(hip, knee, .095, fur, g, S, .075); limb(knee, hock, .07, furD, g, S, .05); limb(hock, hoof, .05, furD, g, S, .045);
-    mesh(new THREE.CylinderGeometry(.06, .075, .07, S), hoofM, g, V(s * .18, .035, .03));
-    if (hi) mesh(new THREE.BoxGeometry(.012, .07, .08), std('#000'), g, V(s * .18, .036, .07));
+    const { pivot, inner: L } = joint(g, hip); legs.push(pivot);
+    limb(hip, knee, .095, fur, L, S, .075); limb(knee, hock, .07, furD, L, S, .05); limb(hock, hoof, .05, furD, L, S, .045);
+    mesh(new THREE.CylinderGeometry(.06, .075, .07, S), hoofM, L, V(s * .18, .035, .03));
+    if (hi) mesh(new THREE.BoxGeometry(.012, .07, .08), std('#000'), L, V(s * .18, .036, .07));
   }
   // loincloth and belt
   mesh(lathe([[.29, .6], [.27, .7], [.25, .8], [.235, .86]], S + 6), leather, g);
@@ -298,13 +355,14 @@ export function makeMinotaurHD(tier: 2 | 3): THREE.Group {
   // arms with bracers and clawed hands
   for (const s of [-1, 1]) {
     const sh = V(s * .4, 1.3, 0), el = V(s * .5, 1.02, .05), wr = V(s * .52, .76, .13);
-    limb(sh, el, .09, fur, g, S, .078); limb(el, wr, .085, fur, g, S, .065);
-    const br = mesh(lathe([[.075, -.06], [.085, -.04], [.088, .04], [.078, .07]], S), bronze, g, el.clone().lerp(wr, .62));
+    const { pivot, inner: A } = joint(g, sh); arms.push(pivot);
+    limb(sh, el, .09, fur, A, S, .078); limb(el, wr, .085, fur, A, S, .065);
+    const br = mesh(lathe([[.075, -.06], [.085, -.04], [.088, .04], [.078, .07]], S), bronze, A, el.clone().lerp(wr, .62));
     br.quaternion.setFromUnitVectors(V(0, 1, 0), el.clone().sub(wr).normalize());
     const hand = wr.clone().add(V(s * .01, -.06, .03));
-    mesh(sphereGeo(.075, S), hide, g, hand, V(1, 1.1, .85));
-    for (let f = 0; f < 3; f++) { const c = mesh(new THREE.ConeGeometry(.014, .06, 8), std('#e8dcc0'), g, hand.clone().add(V((f - 1) * .03, -.07, .05))); c.rotation.x = Math.PI + .4; }
-    if (hi) for (let k = 0; k < 3; k++) mesh(new THREE.TorusGeometry(.04, .01, 6, 10), std('#555', { metalness: .9, roughness: .3 }), g, wr.clone().add(V(0, .02 + k * .025, s * 0))).rotation.set(Math.PI / 2, 0, k * 1.2);
+    mesh(sphereGeo(.075, S), hide, A, hand, V(1, 1.1, .85));
+    for (let f = 0; f < 3; f++) { const c = mesh(new THREE.ConeGeometry(.014, .06, 8), std('#e8dcc0'), A, hand.clone().add(V((f - 1) * .03, -.07, .05))); c.rotation.x = Math.PI + .4; }
+    if (hi) for (let k = 0; k < 3; k++) mesh(new THREE.TorusGeometry(.04, .01, 6, 10), std('#555', { metalness: .9, roughness: .3 }), A, wr.clone().add(V(0, .02 + k * .025, s * 0))).rotation.set(Math.PI / 2, 0, k * 1.2);
   }
   // neck, mane, head
   mesh(lathe([[.17, 1.4], [.15, 1.5], [.13, 1.58]], S), fur, g, V(0, 0, .03));
@@ -320,7 +378,7 @@ export function makeMinotaurHD(tier: 2 | 3): THREE.Group {
   mesh(sphereGeo(.11, S), furD, head, V(0, .075, .15), V(1.5, .45, .7)); // heavy brow
   for (const s of [-1, 1]) {
     mesh(sphereGeo(.024, 10), std('#0a0604'), head, V(s * .05, -.07, .355), V(1, .7, .6));
-    const eye = mesh(sphereGeo(.03, 12), new THREE.MeshBasicMaterial({ color: '#ff4a1a' }), head, V(s * .105, .035, .165));
+    const eye = mesh(sphereGeo(.03, 12), eyeMat, head, V(s * .105, .035, .165));
     if (hi) { const glow = new THREE.Sprite(new THREE.SpriteMaterial({ color: '#ff5a1a', transparent: true, opacity: .55, depthWrite: false, blending: THREE.AdditiveBlending })); glow.scale.setScalar(.12); eye.add(glow); }
     const ear = mesh(sphereGeo(.08, 14), fur, head, V(s * .21, .02, 0), V(1.5, .5, .75)); ear.rotation.z = s * -.35;
     mesh(sphereGeo(.05, 10), std('#b07a70'), head, V(s * .24, .015, .025), V(1.4, .35, .5)).rotation.z = s * -.35;
@@ -340,7 +398,11 @@ export function makeMinotaurHD(tier: 2 | 3): THREE.Group {
     mesh(new THREE.CylinderGeometry(.018, .018, 1.0, 10), leather, axe);
     for (const s of [-1, 1]) { const b = mesh(blade, std('#8a8a8a', { metalness: .9, roughness: .3 }), axe, V(0, .38, -.01)); b.scale.x = s; }
   }
-  return g;
+  bake(g);
+  const mats: THREE.MeshStandardMaterial[] = [];
+  root.traverse((o) => { if (o instanceof THREE.Mesh && o.material instanceof THREE.MeshStandardMaterial && !mats.includes(o.material)) mats.push(o.material); });
+  root.userData = { legs, arms, head, eyeMat, mats } as MinoParts;
+  return root as THREE.Group & { userData: MinoParts };
 }
 
 /** Triangle count of everything in a group (for comparing tiers). */

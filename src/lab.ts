@@ -1,7 +1,7 @@
 // Character lab: compare detail tiers of the heroes and the Minotaur in game-like torchlight.
 // URL params (used by the render script): ?shot&char=theseus|ariadne|perseus|atalanta|minotaur|all&tier=1|2|3&view=near|game|fp&yaw=deg
 import * as THREE from 'three';
-import { makePlayer, makeMino } from './scene';
+import { makePlayerClassic as makePlayer, makeMinoClassic as makeMino } from './scene';
 import { HERO_SPECS, makeHero, makeMinotaurHD, triangles, type Tier } from './characters';
 import * as textures from './textures';
 import { WALLTEX } from './textures';
