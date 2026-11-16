@@ -5,5 +5,8 @@
   "description": "Charlie's game: a stick figure brings colour back to a world the Grey has drained.",
   "players": "1",
   "status": "prototype",
-  "artifact": null
+  "artifact": {
+    "slug": "631dbc88-4a4e-41e2-809e-e4fd448820c1",
+    "url": "https://claude.ai/artifact/DEsxXD7veYgSJjAwHFiRK6"
+  }
 }
