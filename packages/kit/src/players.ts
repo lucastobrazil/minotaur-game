@@ -65,6 +65,15 @@ export class Players {
   }
   private freeSlot(): number { let s = 0; while (this.joined.some((j) => j.slot === s)) s++; return s; }
 
+  /** Is this keyboard key held right now? (e.g. 'KeyQ') */
+  keyDown(code: string): boolean { return this.keys.has(code); }
+  /** Was this key pressed since the last frame? */
+  keyPressed(code: string): boolean { return this.fresh.has(code); }
+  /** The controller a player joined with (null for keyboard players or if it was unplugged). */
+  pad(j: Joined): Gamepad | null { const s = j.source; return s.kind === 'pad' ? connectedPads().find((p) => p.index === s.index) ?? null : null; }
+  /** Buttons pressed on this player's controller since the last frame. */
+  padPressed(j: Joined): number[] { return j.source.kind === 'pad' ? this.padPresses.get(j.source.index) ?? [] : []; }
+
   /** + / - on a controller, or Escape. */
   menuPressed(): boolean { return this.menu; }
   /** Start the game: + / - on a controller, or Enter on the keyboard. */

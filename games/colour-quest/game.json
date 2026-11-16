@@ -1,0 +1,9 @@
+{
+  "id": "colour-quest",
+  "title": "Colour Quest",
+  "emoji": "🎨",
+  "description": "Charlie's game: a stick figure brings colour back to a world the Grey has drained.",
+  "players": "1",
+  "status": "prototype",
+  "artifact": null
+}

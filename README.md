@@ -5,6 +5,7 @@ Browser games built with Claude for the kids. Each game builds to one self-conta
 | Game | Folder |
 | --- | --- |
 | 🐂 The Minotaur | [`games/minotaur`](games/minotaur) |
+| 🎨 Colour Quest (prototype) | [`games/colour-quest`](games/colour-quest) |
 | ⭐ Star Catch (starter template) | [`games/_template`](games/_template) |
 
 ## Getting started
