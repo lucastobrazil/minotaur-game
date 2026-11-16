@@ -28,3 +28,4 @@ body.pointer #hint{display:none}
 #btnA{right:30px;bottom:60px;width:96px;height:96px;font-size:40px;background:#ffd400}
 #btnJump{right:140px;bottom:30px;width:76px;height:76px;font-size:20px}
 #cv{touch-action:none}
+#btnA.off{opacity:.35}

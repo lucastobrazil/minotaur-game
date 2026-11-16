@@ -33,6 +33,14 @@ with sync_playwright() as p:
     pg.mouse.move(600, 250); pg.mouse.down(); pg.mouse.move(800, 250, steps=8); pg.mouse.up(); pg.wait_for_timeout(300)
     print('camera turned', round(pg.evaluate("game.camYaw") - yaw, 2)); assert abs(pg.evaluate("game.camYaw") - yaw) > .1
 
+    # the on-screen A button only talks (the Jump button jumps)
+    pg.evaluate("game.hero.x=0;game.hero.z=10"); pg.wait_for_timeout(300)
+    pg.click('#btnA'); pg.wait_for_timeout(150)
+    print('A away from anyone, height', pg.evaluate('game.hero.y')); assert pg.evaluate('game.hero.y') == 0
+    pg.click('#btnJump'); pg.wait_for_timeout(150)
+    print('Jump button, height', pg.evaluate('game.hero.y')); assert pg.evaluate('game.hero.y') > 0
+    pg.wait_for_timeout(1500)
+
     # Space talks to someone nearby; the on-screen A button gives colours
     pg.evaluate("(()=>{const q=game.quests[3];game.hero.x=q.x+1;game.hero.z=q.z+1})()"); pg.wait_for_timeout(300)
     pg.keyboard.press('Space'); pg.wait_for_timeout(300)

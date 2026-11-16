@@ -33,7 +33,8 @@ function readInput(dt: number): Input {
     if (tp.x || tp.y) { x = tp.x; y = tp.y; }
     return {
       x, y,
-      act: tp.act || players.keyPressed('Space') || players.keyPressed('Enter') || players.keyPressed('KeyF'),
+      talk: tp.act,
+      act: players.keyPressed('Space') || players.keyPressed('Enter') || players.keyPressed('KeyF'),
       jump: tp.jump || players.keyPressed('KeyJ') || players.keyPressed('ShiftLeft'),
       camX: k('KeyE') - k('KeyQ') + tp.camX,
       recenter: players.keyDown('KeyR'),
@@ -63,6 +64,7 @@ function hud() {
   $('quests').innerHTML = `<b>Help everyone (${game.quests.filter((q) => q.done).length}/${game.quests.length})</b><br>` + game.quests.map((q) =>
     `<div class="${q.done ? 'done' : ''}">${q.who} ${(Object.keys(q.needs) as ColourId[]).map((c) => Array(q.needs[c]).fill(`<span class="dot" style="background:${HEX[c]}"></span>`).join('')).join('')}</div>`).join('');
   const q = game.near, talkEl = $('talk');
+  $('btnA').classList.toggle('off', !q || game.state !== 'play');
   if (q && game.state === 'play' && game.time > game.messageUntil) {
     talkEl.classList.remove('hidden');
     talkEl.innerHTML = q.done ? `<b>${q.who}</b>Thank you!` : `<b>${q.who}</b>${hasAll(q.needs) ? `You have ${needText(q.needs)}! Press <u>A</u> to give them.` : `I need ${needText(q.needs)}. Press <u>A</u> to talk.`}`;

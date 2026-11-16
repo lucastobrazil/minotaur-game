@@ -7,7 +7,7 @@ Charlie's idea. The Grey has drained the colour from the world. You're a stick f
 | --- | --- | --- | --- |
 | Start | any button | any key | click / tap |
 | Move | Left stick / d-pad | WASD / arrows | on-screen joystick |
-| Talk / give colours, or jump | A | Space / Enter | A button |
+| Talk / give colours, or jump | A | Space / Enter | A button (talk only; faded when nobody is near) |
 | Jump | B | J / Left Shift | Jump button |
 | Turn the camera | Right stick | Q / E | drag the screen |
 | Camera behind you | L / ZL (hold) | R (hold) | |

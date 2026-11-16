@@ -12,7 +12,8 @@ export interface Quest {
 }
 export interface Drop { colour: ColourId; mesh: THREE.Group; x: number; z: number; t: number }
 export interface Gloomy { mesh: THREE.Group; x: number; z: number; tx: number; tz: number; speed: number }
-export interface Input { x: number; y: number; act: boolean; jump: boolean; camX: number; recenter: boolean }
+/** act = talk if someone's near, otherwise jump (controller A, Space). talk = talk only (the on-screen A button). */
+export interface Input { x: number; y: number; act: boolean; talk?: boolean; jump: boolean; camX: number; recenter: boolean }
 
 const SPEED = 5.2, GRAVITY = 22, JUMP = 7.5, CAM_DIST = 7.5, CAM_H = 3.4, TALK_R = 2.6;
 
@@ -147,7 +148,7 @@ export function update(dt: number, inp: Input) {
   const r = Math.hypot(h.x, h.z); if (r > WORLD_R) { h.x *= WORLD_R / r; h.z *= WORLD_R / r; }
   // nearest quest owner: A talks to them, otherwise A jumps
   game.near = game.quests.find((q) => Math.hypot(q.x - h.x, q.z - h.z) < TALK_R) ?? null;
-  if (playing && inp.act && game.near) talk(game.near);
+  if (playing && (inp.act || inp.talk) && game.near) talk(game.near);
   else if (playing && (inp.act || inp.jump) && h.y <= 0) h.vy = JUMP;
   h.vy -= GRAVITY * dt; h.y = Math.max(0, h.y + h.vy * dt); if (h.y === 0) h.vy = 0;
   const m = h.mesh; m.position.set(h.x, h.y, h.z); m.rotation.y = h.face;
