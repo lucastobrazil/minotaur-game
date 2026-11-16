@@ -7,17 +7,38 @@ import { BUTTON } from 'kit/pads';
 import { camera, renderer, scene, updateSplats } from './scene';
 import { game, hasAll, needText, setup, snapCamera, talk, update, type Input } from './game';
 import { COLOUR_IDS, HEX, type ColourId } from './palette';
+import { initPointer, takePointer } from './pointer';
 
 const $ = (id: string) => document.getElementById(id)!;
-const players = new Players(1);
+const players = new Players(4);
 let me: Joined | null = null;
 
 setup();
 snapCamera();
+initPointer();
 
-function readInput(): Input {
+// the keyboard (both WASD and arrows) and mouse/touch count as one player, so testing needs no controller
+const KEYBOARD: Joined = { slot: 0, source: { kind: 'keys', set: 0 }, label: 'Keyboard' };
+let clicked = false, anyKey = false;
+addEventListener('pointerdown', () => { clicked = true; });
+addEventListener('keydown', (e) => { if (!e.repeat) anyKey = true; });
+const k = (c: string) => players.keyDown(c) ? 1 : 0;
+
+function readInput(dt: number): Input {
+  const tp = takePointer(dt);
   const none: Input = { x: 0, y: 0, act: false, jump: false, camX: 0, recenter: false };
   if (!me) return none;
+  if (me === KEYBOARD) {
+    let x = k('KeyD') + k('ArrowRight') - k('KeyA') - k('ArrowLeft'), y = k('KeyS') + k('ArrowDown') - k('KeyW') - k('ArrowUp');
+    if (tp.x || tp.y) { x = tp.x; y = tp.y; }
+    return {
+      x, y,
+      act: tp.act || players.keyPressed('Space') || players.keyPressed('Enter') || players.keyPressed('KeyF'),
+      jump: tp.jump || players.keyPressed('KeyJ') || players.keyPressed('ShiftLeft'),
+      camX: k('KeyE') - k('KeyQ') + tp.camX,
+      recenter: players.keyDown('KeyR'),
+    };
+  }
   const i = players.input(me), pad = players.pad(me), pressed = players.padPressed(me);
   let camX = (players.keyDown('KeyE') ? 1 : 0) - (players.keyDown('KeyQ') ? 1 : 0);
   if (pad && pad.axes.length >= 4 && Math.abs(pad.axes[2]) > .25) camX = pad.axes[2];
@@ -57,14 +78,15 @@ function frame(now: number) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
   players.update();
   if (game.state === 'title') {
-    const j = players.acceptJoins();
-    if (j.length) { me = j[0]; game.state = 'play'; $('title').classList.add('hidden'); }
-  } else if (!me || !players.joined.includes(me)) {
-    // controller unplugged: let anyone take over
-    const j = players.acceptJoins(); if (j.length) me = j[0];
+    const j = players.acceptJoins().filter((p) => p.source.kind === 'pad');
+    if (j.length || clicked || anyKey) { me = j[0] ?? KEYBOARD; game.state = 'play'; $('title').classList.add('hidden'); }
+  } else if (!me || me === KEYBOARD || !players.joined.includes(me)) {
+    // a controller button takes over from the keyboard (or from an unplugged controller)
+    const j = players.acceptJoins().filter((p) => p.source.kind === 'pad'); if (j.length) me = j[0];
   }
-  if (game.state === 'won' && game.finale > 4 && players.startPressed()) location.reload();
-  update(dt, readInput());
+  if (game.state === 'won' && game.finale > 4 && (players.startPressed() || clicked)) location.reload();
+  clicked = false; anyKey = false;
+  update(dt, readInput(dt));
   updateSplats(dt);
   hud();
   renderer.render(scene, camera);
