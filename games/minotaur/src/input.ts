@@ -163,6 +163,16 @@ export function getDir(i: number): Vec2 | null{
   return(x||y)?{x,y}:null;
 }
 
+/** Joystick position (-1..1, y down) to a maze direction: nothing in the middle, otherwise the nearest
+ *  of 8 directions, with straight lines favoured so it's easy to run down a corridor. */
+export function joyDir(x: number, y: number): Vec2{
+  if(Math.hypot(x,y)<.28)return{x:0,y:0};
+  const ax=Math.abs(x),ay=Math.abs(y);
+  if(ax>ay*1.9)return{x:Math.sign(x),y:0};
+  if(ay>ax*1.9)return{x:0,y:Math.sign(y)};
+  return{x:Math.sign(x),y:Math.sign(y)};
+}
+
 export function init() {
   /* ---------- input ---------- */
   addEventListener('keydown',e=>{
@@ -191,11 +201,20 @@ export function init() {
     const off=()=>{touchThrow[p]=false;b.classList.remove('on')};
     b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('pointerleave',off);
   });
-  document.querySelectorAll<HTMLElement>('.pad button').forEach(b=>{
-    const p=Number(b.dataset.p),x=Number(b.dataset.x),y=Number(b.dataset.y);
-    const on=(e: PointerEvent)=>{e.preventDefault();initAudio();touchDir[p]={x,y};b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}};
-    const off=()=>{if(touchDir[p].x===x&&touchDir[p].y===y)touchDir[p]={x:0,y:0};b.classList.remove('on')};
-    b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('lostpointercapture',off);
+  // touch joysticks: slide your thumb around; the direction snaps to the maze (4 ways, or diagonal near 45°)
+  document.querySelectorAll<HTMLElement>('.pad').forEach(pad=>{
+    const p=Number(pad.dataset.p),knob=pad.querySelector<HTMLElement>('.knob')!;let id: number|null=null;
+    const move=(e: PointerEvent)=>{
+      const r=pad.getBoundingClientRect(),max=r.width/2;
+      let dx=e.clientX-(r.left+max),dy=e.clientY-(r.top+max);const l=Math.hypot(dx,dy);
+      if(l>max){dx*=max/l;dy*=max/l}
+      knob.style.transform=`translate(${dx*.75}px,${dy*.75}px)`;
+      touchDir[p]=joyDir(dx/max,dy/max);
+    };
+    pad.addEventListener('pointerdown',e=>{e.preventDefault();initAudio();id=e.pointerId;pad.classList.add('on');try{pad.setPointerCapture(e.pointerId)}catch(_){};move(e)});
+    pad.addEventListener('pointermove',e=>{if(e.pointerId===id)move(e)});
+    const off=(e: PointerEvent)=>{if(e.pointerId!==id)return;id=null;touchDir[p]={x:0,y:0};knob.style.transform='';pad.classList.remove('on')};
+    pad.addEventListener('pointerup',off);pad.addEventListener('pointercancel',off);pad.addEventListener('lostpointercapture',off);
   });
   addEventListener('gamepadconnected',e=>{G.everPad=true;pollPads();showToast('🎮 Controller connected',1600)});
   addEventListener('gamepaddisconnected',e=>{
