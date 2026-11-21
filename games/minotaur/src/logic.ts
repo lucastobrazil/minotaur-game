@@ -11,7 +11,7 @@ import { showToast, updateHUD, updateTime } from './hud';
 import { getDir, sprintHeld } from './input';
 import { restoreMino, updateItems } from './items';
 import { computeSight } from './level';
-import { bfs, canStep, walk } from './maze';
+import { bfs, canStep, reach, walk } from './maze';
 import { setDoorLabel } from './scene';
 
 /* ---------- game logic ---------- */
@@ -91,13 +91,53 @@ export function checkHug(now: number){
       const fl=$('flash');fl.classList.add('on');setTimeout(()=>fl.classList.remove('on'),120);
       say(m,['CAUGHT YOU!','Back you go!','Too slow!','Got you!'][rnd(4)],1500);
       growl();
-      p.x=p.sx;p.y=p.sy;p.px=p.sx;p.py=p.sy;p.inv=now+2200;computeSight();
+      // the kids' rule: getting caught costs a golden thread, and you're thrown somewhere new in the maze
+      const lost=dropThread(p),[nx,ny]=scatterSpot(p);
+      p.x=nx;p.y=ny;p.px=nx;p.py=ny;p.inv=now+2200;computeSight();
       const tr=p.trail;if(tr)while(tr.children.length)tr.remove(tr.children[0]);
       m.next=now+1100;m.hugT=now;
-      showToast(`${NAMES[G.players.indexOf(p)]} was caught! Back to the start.`,1800);
+      const who=NAMES[G.players.indexOf(p)];
+      showToast(lost==='sealed'?`${who} was caught! A golden thread fell away, and the exit slammed shut! 🧶`
+        :lost?`${who} was caught! A golden thread rolled off into the maze 🧶`
+        :`${who} was caught and thrown somewhere new in the maze!`,2600);
       updateHUD();
     }
   }
+}
+/** Open floor tiles reachable from the start, away from gates, levers, the exit, threads and other players. */
+function freeTiles(skip: Player | null): number[]{
+  const d=reach(G.players[0]?.sx??1,G.players[0]?.sy??1),bad=new Set<number>();
+  for(const g of G.gates){bad.add(g.y*G.W+g.x);bad.add(g.ly*G.W+g.lx);bad.add(g.iy*G.W+g.ix)}
+  for(const t of G.threads)if(!t.taken)bad.add(t.y*G.W+t.x);
+  for(const q of G.players)if(q!==skip)bad.add(q.y*G.W+q.x);
+  bad.add(G.exit.y*G.W+G.exit.x);
+  const out:number[]=[];for(let k=0;k<d.length;k++)if(d[k]>0&&!bad.has(k))out.push(k);
+  return out;
+}
+/** A random tile for a caught player, well away from every Minotaur (and not right back where they were). */
+export function scatterSpot(p: Player): [number, number]{
+  const tiles=freeTiles(p),mdist=G.minos.map(m=>reach(m.x,m.y));
+  const far=(k: number)=>Math.min(...mdist.map(d=>d[k]<0?999:d[k]));
+  for(const need of [10,7,4,0]){
+    const ok=tiles.filter(k=>far(k)>=need&&Math.abs(k%G.W-p.x)+Math.abs(((k/G.W)|0)-p.y)>=6);
+    if(ok.length){const k=ok[rnd(ok.length)];return [k%G.W,(k/G.W)|0]}
+  }
+  return [p.sx,p.sy];
+}
+/** Take one golden thread back off the team and hide it somewhere new. Returns false if they had none,
+ *  'sealed' if that closed the exit again. */
+export function dropThread(p: Player): boolean|'sealed'{
+  if(G.isBoss||G.got<=0)return false;
+  const t=G.threads.find(t=>t.taken);if(!t)return false;
+  const tiles=freeTiles(null).filter(k=>Math.abs(k%G.W-p.x)+Math.abs(((k/G.W)|0)-p.y)>=8);
+  const pick=tiles.length?tiles[rnd(tiles.length)]:null;if(pick===null)return false;
+  t.x=pick%G.W;t.y=(pick/G.W)|0;t.taken=false;t.popT=undefined;G.got--;
+  if(t.mesh){t.mesh.visible=true;t.mesh.scale.setScalar(1);t.mesh.position.set(t.x,.35,t.y)}
+  if(t.pool){t.pool.visible=true;t.pool.position.set(t.x,.014,t.y)}
+  let sealed=false;
+  if(G.doorOpen&&G.got<G.needed){G.doorOpen=false;sealed=true;G.minos.forEach(m=>{m.enraged=false});gateSound(false,{x:G.exit.x,y:G.exit.y})}
+  setDoorLabel();
+  return sealed?'sealed':true;
 }
 export function say(m: Minotaur, text: string, ms: number){m.say=text;m.sayUntil=performance.now()+ms}
 export function update(now: number, dt: number){

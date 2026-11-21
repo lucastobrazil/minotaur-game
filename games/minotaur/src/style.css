@@ -14,11 +14,7 @@ html,body{height:100%;overflow:hidden;background:#141722;font-family:Fredoka,sys
 .bubble:after{content:'';position:absolute;left:50%;bottom:-8px;margin-left:-6px;border:6px solid transparent;border-top-color:#2a1a10;border-bottom:0}
 #controls{display:none;justify-content:space-between;align-items:center;padding:10px 14px calc(14px + env(safe-area-inset-bottom));background:#15130f}
 body.touch #controls{display:flex}
-.pad{display:grid;grid-template-columns:repeat(3,54px);grid-template-rows:repeat(3,54px);gap:4px}
 .pad.hidden{visibility:hidden}
-.pad button{border:none;border-radius:14px;background:rgba(255,255,255,.12);color:#efe2c8;font-size:22px;touch-action:none;font-family:inherit}
-.pad button.on{background:rgba(255,255,255,.4)}
-.pad .u{grid-column:2;grid-row:1}.pad .l{grid-column:1;grid-row:2}.pad .r{grid-column:3;grid-row:2}.pad .d{grid-column:2;grid-row:3}
 .stam{width:64px;height:12px;padding:0!important;position:relative;overflow:hidden;align-self:center}
 .stam b{position:absolute;left:0;top:0;bottom:0;border-radius:999px;transition:background .2s}
 #mini{position:absolute;right:8px;bottom:8px;border:2px solid #3a2f24;border-radius:8px;background:rgba(10,9,8,.75);z-index:2;pointer-events:none}
@@ -34,13 +30,12 @@ body.touch #controls{display:flex}
 .inv.on{display:inline}
 @media (max-width:560px){
   body.two #controls{padding-left:8px;padding-right:8px}
-  body.two .pad{grid-template-columns:repeat(3,38px);grid-template-rows:repeat(3,38px);gap:3px}
-  body.two .pad button{font-size:16px;border-radius:10px}
-  body.two .sprint,body.two .acts .sprint{width:46px;height:46px;font-size:10px}
+  body.two .pad{width:120px;height:120px}
+  body.two .pad .knob{width:46px;height:46px;margin:-23px 0 0 -23px;font-size:11px}
+  body.two   body.two .sprint,body.two .acts .sprint{width:46px;height:46px;font-size:10px}
   body.two .sprint.throw{font-size:18px}
   body.two .side{gap:6px}
 }
-.pad .lbl{grid-column:2;grid-row:2;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border-radius:50%;color:#fff}
 .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,8,12,.55);padding:16px;z-index:10}
 .overlay.hidden{display:none}
 .card{background:#2a241f;border:3px solid #b5823f;border-radius:18px;padding:22px 20px;max-width:440px;width:100%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.6);max-height:100%;overflow:auto}
@@ -91,3 +86,11 @@ body.haspad .padHint{display:block}
 #bossBar i.lost{opacity:.15;transform:scale(.85)}
 .hearts{font-size:13px;margin-left:4px;letter-spacing:-1px;white-space:nowrap}
 #trophies{font-weight:700;color:#ffd36a;margin:4px 0 2px;min-height:4px}
+
+/* touch joystick: put your thumb anywhere on it and slide */
+.pad{position:relative;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.22);touch-action:none;flex:none}
+.pad .ring{position:absolute;inset:28%;border-radius:50%;border:2px dashed rgba(255,255,255,.14);pointer-events:none}
+.pad .knob{position:absolute;left:50%;top:50%;width:62px;height:62px;margin:-31px 0 0 -31px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;box-shadow:0 3px 10px rgba(0,0,0,.5),inset 0 2px 0 rgba(255,255,255,.25);pointer-events:none;transition:transform .12s}
+.pad.on .knob{transition:none}
+.pad.on{background:rgba(255,255,255,.14)}
+@media (max-height:520px){.pad{width:124px;height:124px}.pad .knob{width:50px;height:50px;margin:-25px 0 0 -25px}#controls{padding-top:6px;padding-bottom:calc(8px + env(safe-area-inset-bottom))}}
