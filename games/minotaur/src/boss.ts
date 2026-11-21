@@ -193,7 +193,7 @@ function hurtPlayer(p: Player, now: number, why: string) {
     setTimeout(() => { if (G.state === 'play' && G.isBoss && alive().length === 0) restartBoss(); }, 2200);
   }
 }
-/** A minion catching someone in a boss fight costs a heart instead of a trip back to the start. */
+/** A minion catching someone in a boss fight costs a heart instead of a thread and a random respawn. */
 export function minionCatch(p: Player, now: number) { hurtPlayer(p, now, 'was caught'); }
 
 function revive(p: Player, now: number) {
